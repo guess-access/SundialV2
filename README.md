@@ -137,11 +137,33 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
 - The `viewport` meta tag (`width=device-width, initial-scale=1, viewport-fit=cover`) keeps
   the layout honest on tablets and phones, and safe-area padding covers notched screens.
 
+## Landing page
+
+`landing.html` is the marketing page: a hero built around the animated mark, a showcase of
+the mark in the two places it actually runs (a 16:9 **video intro** frame and an **app
+loading screen**), the feature list, the colour and motion spec, and a download for the
+asset. It links through to `index.html`, which is untouched — the app still answers at the
+site root.
+
+The mark itself lives in `sundial-mark.svg` as one self-contained file: the two orbits slowly
+counter-rotate (**16s** and **22s**, linear, so the loop point is invisible) while the lime
+centre dot pulses (**2.4s**) with a halo pinging outward, after a one-off draw-in beat
+(ring traces over 1.4s, orbits fade, dot pops). It is pure CSS — no JavaScript, no SMIL —
+so it works as an `<img>`, as an inline `<svg>` you can restyle, and as a favicon. It
+resolves to a finished static state under `prefers-reduced-motion`.
+
+    http://localhost:8788/landing.html     # any static server works, e.g. serve.ps1
+
+Because the page is static, it publishes everywhere `index.html` does — GitHub Pages and
+Netlify alike — with no build step.
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
 | `index.html` | The site — the page Netlify serves. |
+| `landing.html` | The landing page — hero, animated mark, motion showcase, colours, asset download. |
+| `sundial-mark.svg` | The animated mark on its own: rotating orbits, pulsing dot, self-contained CSS. |
 | `netlify/functions/*.js` | The backend: `status`, `salt`, `signup`, `login`, `logout`, `state`, `sync`, `migrate`, `health`. |
 | `lib/store.js` | Shared storage and permission code the functions are bundled with. |
 | `package.json` | Pulls in `@netlify/blobs` when Netlify builds from git. |

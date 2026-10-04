@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240"
+     role="img" aria-labelledby="sdTitle">
+  <title id="sdTitle">Sundial — HR + Payroll</title>
+
+  <!--
+    Sundial animated mark.
+    The two orbits slowly counter-rotate while the centre dot pulses, then a
+    soft halo pings outward. Everything is CSS, so this file loops forever with
+    no JavaScript — drop it straight into a loading screen, an app splash or a
+    video intro (screen-record or hand to a motion designer as the reference).
+    The whole cycle is seamless: there is no start and no end once it is running.
+  -->
+  <style>
+    .sd-ring {
+      fill: none;
+      stroke: #00bfa6;
+      stroke-width: 7;
+      stroke-linecap: round;
+      stroke-dasharray: 654;
+      animation: sd-draw 1.4s cubic-bezier(.65, 0, .35, 1) both;
+    }
+
+    .sd-orbit {
+      fill: none;
+      stroke-width: 7;
+      stroke-linecap: round;
+      transform-box: view-box;
+      transform-origin: 50% 50%;
+    }
+
+    .sd-orbit--a {
+      stroke: #00bfa6;
+      animation: sd-spin-a 16s linear infinite,
+                 sd-fade .8s ease-out .25s both;
+    }
+
+    .sd-orbit--b {
+      stroke: #ff8b7e;
+      animation: sd-spin-b 22s linear infinite,
+                 sd-fade .8s ease-out .45s both;
+    }
+
+    .sd-dotwrap {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: sd-pop .7s cubic-bezier(.2, .9, .3, 1.5) .5s both;
+    }
+
+    .sd-halo {
+      fill: none;
+      stroke: #a5d637;
+      stroke-width: 5;
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: sd-ping 2.4s ease-out 1.3s infinite;
+    }
+
+    .sd-dot {
+      fill: #a5d637;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: sd-pulse 2.4s ease-in-out 1.3s infinite;
+    }
+
+    @keyframes sd-spin-a { to { transform: rotate(360deg); } }
+    @keyframes sd-spin-b { to { transform: rotate(-360deg); } }
+    @keyframes sd-fade   { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes sd-draw   { from { stroke-dashoffset: 654; } to { stroke-dashoffset: 0; } }
+    @keyframes sd-pop    { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+    @keyframes sd-pulse  { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .78; } }
+    @keyframes sd-ping   { 0% { transform: scale(1); opacity: .55; } 70%, 100% { transform: scale(3.4); opacity: 0; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sd-ring, .sd-orbit, .sd-dotwrap, .sd-halo, .sd-dot {
+        animation: none !important;
+        stroke-dashoffset: 0 !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .sd-halo { opacity: 0 !important; }
+    }
+  </style>
+
+  <circle class="sd-ring" cx="120" cy="120" r="104"/>
+
+  <g class="sd-orbit sd-orbit--a">
+    <ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(-44 120 120)"/>
+  </g>
+  <g class="sd-orbit sd-orbit--b">
+    <ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(44 120 120)"/>
+  </g>
+
+  <g class="sd-dotwrap">
+    <circle class="sd-halo" cx="120" cy="120" r="16"/>
+    <circle class="sd-dot"  cx="120" cy="120" r="16"/>
+  </g>
+</svg>
