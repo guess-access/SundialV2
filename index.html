@@ -13,6 +13,63 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
+  color-scheme: dark;
+  /* DARK IS THE DEFAULT. Every surface, line and ink below is a token, so the
+     page switches theme by swapping the tokens alone. The same names carry the
+     original white theme in [data-theme="light"] underneath.
+     Dark pairing rule: fills stay deep, the ink on them goes pale, and the
+     semantic colours (signal, amber, lunch, alert) are the lightened siblings
+     of their white-theme selves so they hold contrast on a deep panel. */
+  --field:#0E1620;
+  --panel:#16212D;
+  --panel-2:#1E2B39;
+  --line:#3A4E62;
+  --line-soft:#263444;
+  --paper:#E4ECF3;
+  --muted:#93A2B1;
+  --signal:#3ECF9A;
+  --signal-ink:#06281D;
+  --signal-fill:#0F2A22;
+  --signal-line:#1F6B52;
+  --signal-hover:#57DCAC;
+  --amber:#F0B457;
+  --amber-ink:#2C1D06;
+  --amber-fill:#2E2314;
+  --amber-line:#795A25;
+  --lunch:#A6A2FF;
+  --lunch-ink:#14124A;
+  --lunch-fill:#242147;
+  --lunch-line:#4E4AA8;
+  --alert:#FF7A6E;
+  --alert-ink:#33100C;
+  --alert-fill:#351714;
+  --alert-line:#8A3A31;
+  --alert-hover-line:#A85046;
+  /* logo colours, sampled from logo.png: red seal, globe blue, figure navy.
+     Red and blue read on either theme; navy is a text colour, so it flips. */
+  --brand-red:#FF0C04;
+  --brand-blue:#4AB1E0;
+  --brand-navy:#7FB6E4;
+  --brand-gradient:linear-gradient(180deg,#8CC4EC 0%,#5FBEEA 52%,#4BD6A8 100%);
+  /* one-off surfaces that used to be spelled out as hex in the rules below */
+  --field-input:#111B25;
+  --btn-hover:#26343F;
+  --btn-hover-line:#55697C;
+  --placeholder:#7A8896;
+  --code-bg:#0F1A24;
+  --inset:#131E29;
+  --scrim:rgba(4,8,12,.62);
+  --shadow:0 8px 24px rgba(0,0,0,.45);
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r:10px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+/* The original white theme, unchanged value for value. Pick it with the
+   contrast button in the corner; the choice is remembered per browser. */
+[data-theme="light"]{
   color-scheme: light;
   /* White page, white panels, dark ink: every colour below is checked to stay
      legible on white, and anything used as a fill takes white text on top. */
@@ -27,6 +84,7 @@
   --signal-ink:#FFFFFF;
   --signal-fill:#E3F6EE;
   --signal-line:#8FD5BC;
+  --signal-hover:#0A6A47;
   --amber:#8A5300;
   --amber-ink:#FFFFFF;
   --amber-fill:#FCF0DA;
@@ -39,16 +97,19 @@
   --alert-ink:#FFFFFF;
   --alert-fill:#FCEBE9;
   --alert-line:#EAA9A2;
-  /* logo colours, sampled from logo.png: red seal, globe blue, figure navy */
+  --alert-hover-line:#D98078;
   --brand-red:#FF0C04;
   --brand-blue:#4AB1E0;
   --brand-navy:#104474;
-  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --r:10px;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
+  --brand-gradient:linear-gradient(180deg,#104474 0%,#1E6FA8 52%,#0B7A52 100%);
+  --field-input:#FFFFFF;
+  --btn-hover:#DFE6ED;
+  --btn-hover-line:#9DB0C2;
+  --placeholder:#6E7884;
+  --code-bg:#EEF2F6;
+  --inset:#F7F9FB;
+  --scrim:rgba(15,23,32,.45);
+  --shadow:0 8px 24px rgba(15,23,32,.16);
 }
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
@@ -76,19 +137,19 @@ input,select{font:inherit}
   background:var(--panel-2);color:var(--paper);cursor:pointer;
   font-weight:500;transition:background .12s ease,border-color .12s ease;
 }
-.btn:hover:not(:disabled){background:#DFE6ED;border-color:#9DB0C2}
+.btn:hover:not(:disabled){background:var(--btn-hover);border-color:var(--btn-hover-line)}
 .btn:disabled{opacity:.42;cursor:not-allowed}
 .btn-quiet{background:transparent}
 .btn-quiet:hover:not(:disabled){background:var(--panel-2)}
 .btn-danger{color:var(--alert);border-color:var(--alert-line)}
-.btn-danger:hover:not(:disabled){background:var(--alert-fill);border-color:#D98078}
+.btn-danger:hover:not(:disabled){background:var(--alert-fill);border-color:var(--alert-hover-line)}
 .field{display:block;margin:0 0 14px}
 .field span{display:block;font-size:.86rem;color:var(--muted);margin-bottom:6px}
 .field input,.field select{
   width:100%;padding:11px 12px;border-radius:8px;
-  border:1px solid var(--line);background:#FFFFFF;color:var(--paper);
+  border:1px solid var(--line);background:var(--field-input);color:var(--paper);
 }
-.field input::placeholder{color:#6E7884}
+.field input::placeholder{color:var(--placeholder)}
 .note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
 .err{color:var(--alert);font-size:.9rem;margin:0 0 12px;min-height:1.2em}
 .hidden{display:none !important}
@@ -140,7 +201,7 @@ input,select{font:inherit}
 .actions .btn{padding:14px 12px;font-weight:600}
 .row-label{margin:20px 0 0;font-size:.86rem;color:var(--muted)}
 .btn-in{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
-.btn-in:hover:not(:disabled){background:#0A6A47;border-color:#0A6A47}
+.btn-in:hover:not(:disabled){background:var(--signal-hover);border-color:var(--signal-hover)}
 .btn-brk{background:transparent;color:var(--amber);border-color:var(--amber-line)}
 .btn-brk:hover:not(:disabled){background:var(--amber-fill)}
 .btn-brk.live{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
@@ -185,8 +246,8 @@ tfoot td{border-top:1px solid var(--line);font-weight:600}
 
 dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);border-radius:var(--r);padding:22px;width:min(400px,92vw)}
 #impDlg{width:min(680px,94vw)}
-#impDlg textarea{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:#FFFFFF;color:var(--paper);font-family:var(--mono);font-size:.84rem;resize:vertical}
-#impDlg code{background:#EEF2F6;border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px}
+#impDlg textarea{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);font-family:var(--mono);font-size:.84rem;resize:vertical}
+#impDlg code{background:var(--code-bg);border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px}
 #impDlg input[type=file]{color:var(--muted);font-size:.88rem;max-width:100%}
 #impResult{max-height:220px;overflow:auto;margin:6px 0 14px;font-size:.88rem}
 #impResult ul{margin:0;padding-left:18px}
@@ -195,9 +256,9 @@ dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);b
 #impResult .note{color:var(--amber)}
 #impResult .pin{font-family:var(--mono);color:var(--amber)}
 #actDlg{width:min(540px,94vw);max-height:92vh;overflow:auto}
-#actBody textarea{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:#FFFFFF;color:var(--paper);resize:vertical;font-family:inherit}
+#actBody textarea{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);resize:vertical;font-family:inherit}
 /* Break 1 / Break 2 / Lunch get a pair of boxes each inside the shift dialogs */
-.pause-edit{border:1px solid var(--line-soft);border-radius:10px;background:#F7F9FB;padding:12px 14px;margin:0 0 14px}
+.pause-edit{border:1px solid var(--line-soft);border-radius:10px;background:var(--inset);padding:12px 14px;margin:0 0 14px}
 .pause-edit > .note{margin:0 0 10px}
 .pause-row{display:flex;flex-wrap:wrap;gap:0 12px;align-items:flex-end}
 .pause-row .plabel{flex:0 0 54px;font-size:.86rem;color:var(--muted);padding-bottom:11px}
@@ -211,14 +272,14 @@ dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);b
 .reqtag.pending{color:var(--amber);border-color:var(--amber-line);background:var(--amber-fill)}
 .reqtag.declined{color:var(--alert);border-color:var(--alert-line);background:var(--alert-fill)}
 .reqtag.approved{color:var(--signal);border-color:var(--signal-line);background:var(--signal-fill)}
-dialog::backdrop{background:rgba(15,23,32,.45)}
+dialog::backdrop{background:var(--scrim)}
 dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .dlg-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
 .toast{
   position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(20px + env(safe-area-inset-bottom,0px));
   background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
-  padding:11px 18px;font-size:.92rem;z-index:50;box-shadow:0 8px 24px rgba(15,23,32,.16)
+  padding:11px 18px;font-size:.92rem;z-index:50;box-shadow:var(--shadow)
 }
 /* ---------- the big centre title ---------- */
 .brand{padding:2px 0 18px;text-align:center}
@@ -233,7 +294,7 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 }
 @supports ((-webkit-background-clip:text) or (background-clip:text)){
   .brand-title{
-    background:linear-gradient(180deg,#104474 0%,#1E6FA8 52%,#0B7A52 100%);
+    background:var(--brand-gradient);
     -webkit-background-clip:text;background-clip:text;
     -webkit-text-fill-color:transparent;color:transparent;
   }
@@ -265,14 +326,14 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sched-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft);flex-wrap:wrap}
 .sched-row:first-child{border-top:0}
 .sched-day{width:3.2em;flex:none;font-weight:600;font-size:.92rem}
-.sched-kind{flex:1 1 150px;min-width:132px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#FFFFFF;color:var(--paper)}
+.sched-kind{flex:1 1 150px;min-width:132px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);color:var(--paper)}
 .sched-times{display:flex;align-items:center;gap:6px;flex:2 1 268px;flex-wrap:wrap}
 .sched-times input{
-  padding:8px 9px;border-radius:8px;border:1px solid var(--line);background:#FFFFFF;
+  padding:8px 9px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);
   color:var(--paper);font-family:var(--mono);font-size:.88rem;width:7.6em
 }
 #schedDlg textarea{
-  width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:#FFFFFF;
+  width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);
   color:var(--paper);resize:vertical;font-family:inherit;font-size:.9rem
 }
 .sched-plus{font-size:.9rem}
@@ -282,6 +343,17 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sched-row[data-kind="fixed"] .t4,
 .sched-row[data-kind="fixed"] .sched-plus{display:none}
 
+/* ---------- theme switch: dark is the default, this flips to the white one ---------- */
+.theme-toggle{
+  position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;z-index:60;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 13px;font:inherit;font-size:.82rem;font-weight:500;line-height:1.4;
+  background:var(--panel);color:var(--muted);
+  border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  box-shadow:var(--shadow);transition:color .12s ease,border-color .12s ease;
+}
+.theme-toggle:hover{color:var(--paper);border-color:var(--btn-hover-line)}
+.theme-toggle i{width:9px;height:9px;border-radius:50%;background:var(--signal);flex:none}
 @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 
 /* ---------- phones & tablets: single column, scrollable tables, no zoom jump ---------- */
@@ -306,8 +378,16 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
   #schedDlg,#actDlg,#impDlg{width:96vw;max-height:92vh}
 }
 </style>
+<script>
+/* Runs before first paint so the page never flashes the wrong theme. Dark is
+   the built-in default, so only a stored preference needs applying here. */
+try{var __t=localStorage.getItem("sundial-theme");
+if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme",__t);
+}catch(e){}
+</script>
 </head>
 <body>
+<button class="theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
 <div class="wrap">
 
   <!-- ============ BIG TITLE ============ -->
@@ -2955,6 +3035,24 @@ $("schedSave").addEventListener("click", function(){
 thisWeek();
 setView("clock");
 boot();
+})();
+</script>
+<script>
+/* Theme switch. The label always names what is on screen right now. */
+(function(){
+  var btn=document.getElementById("themeBtn"),
+      label=document.getElementById("themeLabel"),
+      root=document.documentElement;
+  function current(){return root.getAttribute("data-theme")==="light"?"light":"dark";}
+  function paint(){var c=current();label.textContent=c==="light"?"Light":"Dark";
+                   btn.setAttribute("aria-pressed",c==="dark");}
+  paint();
+  btn.addEventListener("click",function(){
+    var next=current()==="dark"?"light":"dark";
+    root.setAttribute("data-theme",next);
+    try{localStorage.setItem("sundial-theme",next);}catch(e){}
+    paint();
+  });
 })();
 </script>
 </body>
