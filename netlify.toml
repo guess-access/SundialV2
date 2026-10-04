@@ -1,0 +1,56 @@
+# Prestige Dealer Alliance - timelogs
+#
+# The page is plain static HTML (index.html at the repository root).
+# The backend lives in netlify/functions and is reached through /api/...
+
+[build]
+  publish = "."
+  command = "echo static site - nothing to build"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  # bundle each function with esbuild so lib/store.js and the Netlify Blobs
+  # client from package.json end up inside every function
+  node_bundler = "esbuild"
+
+# the page calls /api/status, /api/state, /api/sync ... and the functions are
+# named after exactly those words
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# the backend source sits inside the published folder on purpose (it is bundled
+# from there); these are never served as ordinary files
+[[redirects]]
+  from = "/netlify/functions/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/lib/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/netlify.toml"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/README.md"
+  to = "/404.html"
+  status = 404
+  force = true

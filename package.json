@@ -1,0 +1,12 @@
+{
+  "name": "sundial-timelogs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prestige Dealer Alliance timelogs - static page plus Netlify Functions backend",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

@@ -1,0 +1,11 @@
+# the page talks to /api/..., the functions are named after exactly those words
+/api/*    /.netlify/functions/:splat    200
+
+# the backend source sits inside the published folder on purpose (it is bundled
+# from there); these are never served as ordinary files - the trailing ! forces
+# the rule even though a real file exists at the path
+/netlify/functions/*    /404.html    404!
+/lib/*                   /404.html    404!
+/package.json            /404.html    404!
+/netlify.toml            /404.html    404!
+/README.md               /404.html    404!
