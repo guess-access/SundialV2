@@ -1745,13 +1745,13 @@ function lateMins(e, u){
 /* ---------------- one row per day ----------------
    The sheet is a day-by-day report: every date in the range is a line, weekends
    included whether or not anybody is rostered, and each line carries a status —
-   Absent (no clock in 4 hours after the shift was due), Late (mm:ss),
-   Early logout (mm:ss), On time, Rest day or Still clocked in. */
+   Absent (no clock in 4 hours after the shift was due), Late (hh:mm:ss),
+   Early logout (hh:mm:ss), On time, Rest day or Still clocked in. */
 var ABSENT_AFTER = 4 * 3600000;
-function fmtMMSS(ms){
+function fmtHMS(ms){
   if(!ms || ms < 0) ms = 0;
   var s = Math.floor(ms / 1000);
-  return pad(Math.floor(s / 60)) + ":" + pad(s % 60);
+  return pad(Math.floor(s / 3600)) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60);
 }
 function schedSpan(r){
   if(!r || r.flex) return null;
@@ -1792,9 +1792,9 @@ function dayStatus(u, key, entries, nowMs){
   var lateMs = inMs - startMs;
   var earlyMs = (outMs !== null && outMs < endMs) ? endMs - outMs : 0;
   var parts = [], cls = "st-ok", code = "ontime";
-  if(lateMs > 0){ parts.push("Late (" + fmtMMSS(lateMs) + ")"); cls = "st-late"; code = "late"; }
+  if(lateMs > 0){ parts.push("Late (" + fmtHMS(lateMs) + ")"); cls = "st-late"; code = "late"; }
   if(open){ parts.push("Still clocked in"); cls = "st-open"; code = "open"; }
-  else if(earlyMs > 0){ parts.push("Early logout (" + fmtMMSS(earlyMs) + ")"); if(cls === "st-ok"){ cls = "st-early"; code = "early"; } }
+  else if(earlyMs > 0){ parts.push("Early logout (" + fmtHMS(earlyMs) + ")"); if(cls === "st-ok"){ cls = "st-early"; code = "early"; } }
   if(!parts.length) parts.push("On time");
   return { code:code, cls:cls, label:parts.join(" · "),
            lateMs: lateMs > 0 ? lateMs : 0, earlyMs: earlyMs, startMs:startMs, endMs:endMs };
