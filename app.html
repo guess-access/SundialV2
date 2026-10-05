@@ -536,6 +536,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <span class="readout hero-time" style="font-size:clamp(2.6rem,11vw,4rem)"><span id="hh">--:--</span><span class="hero-sec" id="ss">:--</span></span>
           <p class="hero-date" id="today" style="text-align:left;margin-top:8px"></p>
           <p class="hero-date" id="schedLine" style="text-align:left;margin-top:2px"></p>
+          <p class="hero-date" id="payLine" style="text-align:left;margin-top:2px"></p>
           <div style="margin-top:9px">
             <button class="btn btn-quiet hidden" id="btnSchedReq" type="button" style="padding:7px 13px;font-size:.85rem">Request schedule change</button>
           </div>
@@ -1640,6 +1641,20 @@ function weekKeys(key){
   d.setDate(d.getDate() + 6);
   return [start, localKey(d)];
 }
+/* ---------- two-week pay periods, always Sunday to Saturday ----------
+   Fortnights are counted from Sunday 2024-01-07, so the period holding any
+   date never drifts: floor((day - epoch) / 14). Returns [startKey, endKey]. */
+var PAY_EPOCH = Date.UTC(2024, 0, 7) / 86400000;
+function payKeys(todayKey){
+  var a = String(todayKey || "").split("-");
+  var n = Math.floor(Date.UTC(+a[0], +a[1] - 1, +a[2]) / 86400000);
+  var start = PAY_EPOCH + Math.floor((n - PAY_EPOCH) / 14) * 14;
+  function key(day){
+    var d = new Date(day * 86400000);
+    return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate());
+  }
+  return [key(start), key(start + 13)];
+}
 
 /* ---------------- schedules ---------------- */
 var DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -2276,6 +2291,8 @@ function renderClock(u){
     : !sched ? "Rest day — no shift scheduled"
     : sched.flex ? "Flexible hours today — clock in whenever"
     : "Scheduled " + fmtRange(sched);
+  var pp = payKeys(todayKey);
+  $("payLine").textContent = "Pay period " + fmtShortDate(pp[0]) + " – " + fmtShortDate(pp[1]);
   var e = openEntry(u.id);
   var live = openPause(e);
   var def = live ? pauseDef(live.type) : null;
