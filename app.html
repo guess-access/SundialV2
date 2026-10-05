@@ -183,9 +183,12 @@ input,select{font:inherit}
 
 /* ---------- app chrome ---------- */
 .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 0 16px;border-bottom:1px solid var(--line-soft);margin-bottom:18px}
-.who{margin-right:auto;min-width:0}
-.who strong{display:block;font-weight:600;letter-spacing:-.01em}
-.who span{font-size:.84rem;color:var(--muted)}
+.who{margin-right:auto;min-width:0;display:flex;align-items:center;gap:12px}
+.who__text{min-width:0}
+.who__text strong{display:block;font-weight:600;letter-spacing:-.01em}
+.who__text span{font-size:.84rem;color:var(--muted)}
+.who-ava{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
+.who-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:1.1rem;color:var(--muted)}
 .nav{display:flex;gap:6px;margin:0 0 18px;flex-wrap:wrap}
 .tab{padding:8px 14px;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer}
 .tab:hover{color:var(--paper)}
@@ -403,6 +406,11 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
   font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--muted);
 }
+.emp-profile{display:flex;align-items:center;gap:16px;margin:2px 0 18px}
+.emp-profile__name{font-family:var(--display);font-weight:800;font-size:1.25rem;letter-spacing:-.02em}
+.emp-profile__meta{color:var(--muted);font-size:.9rem;margin-top:2px}
+.pro-ava{width:64px;height:64px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
+.pro-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:1.6rem;color:var(--muted)}
 .emp-label span:last-child{color:var(--signal)}
 .emp-photo-row{display:flex;align-items:center;gap:14px}
 .emp-photo{width:72px;height:72px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
@@ -503,8 +511,11 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
   <section id="app" class="hidden">
     <div class="topbar">
       <div class="who">
-        <strong id="whoName"></strong>
-        <span id="whoRole"></span>
+        <span id="whoAva"></span>
+        <div class="who__text">
+          <strong id="whoName"></strong>
+          <span id="whoRole"></span>
+        </div>
       </div>
       <button class="btn btn-quiet" id="btnPin">Change passcode</button>
       <button class="btn btn-quiet" id="btnOut">Sign out</button>
@@ -632,6 +643,13 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
 
       <div class="panel block" style="margin-bottom:16px">
         <div class="emp-label"><span id="empFormTitle">Employee information</span><span id="empFormWho"></span></div>
+        <div class="emp-profile">
+          <span id="empProfileAva"></span>
+          <div>
+            <div class="emp-profile__name" id="empProfileName"></div>
+            <div class="emp-profile__meta" id="empProfileMeta"></div>
+          </div>
+        </div>
         <p class="note" id="empFormNote" style="margin:0 0 14px"></p>
         <label class="field"><span>Username (sign-in name, never changes)</span>
           <input type="text" id="empUser" disabled>
@@ -2222,6 +2240,7 @@ function render(){
 
   $("whoName").textContent = u.name;
   $("whoRole").textContent = "@" + u.username + (u.role === "admin" ? " · admin" : "");
+  $("whoAva").innerHTML = empAvatar(u, "who-ava");
   show($("tabTeam"), u.role === "admin");
   show($("btnPin"), u.role === "admin");   // passcodes are changed by an admin
   show($("sExport"), u.role === "admin");  // only an admin exports timesheets and punch logs
@@ -2572,10 +2591,11 @@ wirePhoto("empAddPhoto", "empAddErr", function(d){
   empAddPhotoData = d;
   showPhoto("empAddPhotoPrev", "empAddPhotoInit", d, "?");
 });
-function empAvatar(x){
-  if(x.photo) return '<img class="emp-ava" src="' + esc(x.photo) + '" alt="">';
+function empAvatar(x, cls){
+  cls = cls || "emp-ava";
+  if(x.photo) return '<img class="' + cls + '" src="' + esc(x.photo) + '" alt="">';
   var initial = esc(String(x.name || "?").trim().charAt(0).toUpperCase() || "?");
-  return '<span class="emp-ava emp-ava--init">' + initial + '</span>';
+  return '<span class="' + cls + ' ' + cls + '--init">' + initial + '</span>';
 }
 function empTarget(){
   var u = currentUser(); if(!u) return null;
@@ -2606,6 +2626,11 @@ function renderEmployees(){
     : "Your details, exactly as payroll sees them. Tell your admin about a new position or hire date.";
   $("empFormTitle").textContent = isAdmin ? "Employee information" : "My details";
   $("empFormWho").textContent = "@" + t.username;
+  $("empProfileAva").innerHTML = empAvatar(t, "pro-ava");
+  $("empProfileName").textContent = t.name;
+  $("empProfileMeta").textContent = "@" + t.username +
+    (t.position ? " · " + t.position : "") +
+    (t.employmentStatus ? " · " + t.employmentStatus : "");
   $("empFormNote").textContent = isAdmin
     ? "Role, passcode and schedule stay on the Team tab."
     : "Your position and hire date are kept by your admin.";
