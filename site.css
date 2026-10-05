@@ -204,7 +204,7 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
   background:radial-gradient(120% 120% at 50% 0%, #1d3448 0%, var(--navy-deep) 55%, #0c1926 100%);
   display:grid;justify-items:center;gap:11px;text-align:center;
 }
-.appload__mark{width:94px;height:94px;filter:drop-shadow(0 0 30px rgba(0,191,166,.35))}
+.appload__mark{width:150px;height:150px;filter:drop-shadow(0 0 30px rgba(0,191,166,.35))}
 .appload__title{font-family:var(--sans);font-weight:800;font-size:22px;color:#fff;letter-spacing:-.03em}
 .appload__status{font-size:13.5px;color:rgba(255,255,255,.62);margin-top:-3px}
 .appload .dots{justify-content:center;margin-top:3px}
