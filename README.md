@@ -104,8 +104,8 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
   - **Absent** — no clock in within **4 hours** of the scheduled start. Today's shift shows
     *Not clocked in yet* until that window closes, and a shift that has not started shows
     *Expected 9:00 AM*.
-  - **Late (mm:ss)** — clocked in after the scheduled start, e.g. `Late (12:30)`.
-  - **Early logout (mm:ss)** — clocked out before the scheduled end.
+  - **Late (hh:mm:ss)** — clocked in after the scheduled start, e.g. `Late (00:12:30)`.
+  - **Early logout (hh:mm:ss)** — clocked out before the scheduled end.
   - **On time**, **Still clocked in**, **Rest day**, **Flexible hours**, **No schedule** or
     **Worked on a rest day**. Two can appear together, e.g. `Late (05:00) · Early logout (12:00)`.
 - The totals above the sheet gained an **Absent** count next to *Days worked*, *Break time*
