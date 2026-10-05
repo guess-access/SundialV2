@@ -236,6 +236,7 @@ Demo accounts (seeded on first use, sign-ups stay open for real ones):
 | --- | --- | --- |
 | `admin` | `admin1234` | Admin — Team, timesheets, schedules, exports, passcodes |
 | `demo` | `demo1234` | Staff — Clock, My timesheet, leave and schedule requests |
+| `rosa.diaz`, `jose.ramos`, `ana.cruz` | `test1234` | Sample staff with full profiles, seeded so the roster shows real information. Switch one off on the Team tab to retire it. |
 
 Be clear-eyed about what this is: demo sign-in is convenience, not security.
 The passcodes and the data sit in the browser, readable by anyone with the

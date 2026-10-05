@@ -486,10 +486,10 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
     </div>
 
     <div class="nav" role="tablist">
+      <button class="tab" role="tab" data-view="employees" aria-selected="false">My Info</button>
       <button class="tab" role="tab" data-view="clock" aria-selected="true">Clock</button>
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
-      <button class="tab" role="tab" data-view="employees" aria-selected="false">My Info</button>
       <a class="nav-leave" id="btnLeave" href="https://cmph48dib0036y043ztgjjk9i.zapier.app/page" target="_blank" rel="noopener noreferrer">Leave Request Form <span aria-hidden="true">↗</span></a>
     </div>
 
@@ -1915,7 +1915,7 @@ function renderEmployees(){
     var body = $("empBody"); body.innerHTML = "";
     state.users.forEach(function(x){
       var tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + esc(x.name) + "</td><td>@" + esc(x.username) + "</td>" +
+      tr.innerHTML = "<td>" + esc(x.name) + (x.active === false ? ' <span class="muted">· off</span>' : "") + "</td><td>@" + esc(x.username) + "</td>" +
         "<td>" + esc(x.position || "—") + "</td><td>" + esc(x.phone || "—") + "</td>" +
         '<td style="text-align:right;white-space:nowrap"><button class="btn btn-quiet" data-emp="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Edit</button></td>';
       body.appendChild(tr);

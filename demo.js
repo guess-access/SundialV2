@@ -34,16 +34,15 @@ var Demo = (function () {
     var db = null;
     try { db = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { db = null; }
     if (!db || typeof db !== "object" || Array.isArray(db)) return { fresh: true, db: blank() };
-    return {
-      fresh: false,
-      db: {
-        users: asList(db.users),
-        entries: asList(db.entries),
-        requests: asList(db.requests),
-        settings: (db.settings && typeof db.settings === "object" && !Array.isArray(db.settings)) ? db.settings : { signup: true },
-        sessions: (db.sessions && typeof db.sessions === "object" && !Array.isArray(db.sessions)) ? db.sessions : {}
-      }
+    var out = {
+      users: asList(db.users),
+      entries: asList(db.entries),
+      requests: asList(db.requests),
+      settings: (db.settings && typeof db.settings === "object" && !Array.isArray(db.settings)) ? db.settings : { signup: true },
+      sessions: (db.sessions && typeof db.sessions === "object" && !Array.isArray(db.sessions)) ? db.sessions : {}
     };
+    if (typeof db.seedV === "number") out.seedV = db.seedV;
+    return { fresh: false, db: out };
   }
   function save(db) {
     try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {}
@@ -282,39 +281,77 @@ var Demo = (function () {
     }
   }
 
-  /* Seed accounts on a brand-new demo database. Salts are random per browser;
-     hashes use the same scheme the app sends, so login compares like for like. */
-  function seed(db) {
-    function mk(username, name, role, pass) {
-      var salt = randHex(12);
-      return sha(pass, salt).then(function (h) {
-        db.users.push({
-          id: "u" + Date.now().toString(36) + randHex(3),
-          username: username, name: name, salt: salt, hash: h,
-          role: role, createdAt: new Date().toISOString(), active: true, sched: null
-        });
+  /* Seed accounts on a brand-new demo database, plus sample staff profiles so
+     the roster shows real information. Salts are random per browser; hashes
+     use the same scheme the app sends, so login compares like for like.
+     seedV migrates older demo databases forward without touching anyone
+     already on file: missing sample accounts are added, nothing is removed. */
+  var SEED_V = 2;
+  function mkUser(db, username, name, role, pass, info) {
+    var salt = randHex(12);
+    return sha(pass, salt).then(function (h) {
+      var u = {
+        id: "u" + Date.now().toString(36) + randHex(3),
+        username: username, name: name, salt: salt, hash: h,
+        role: role, createdAt: new Date().toISOString(), active: true, sched: null
+      };
+      if (info) Object.keys(info).forEach(function (k) { u[k] = info[k]; });
+      db.users.push(u);
+    });
+  }
+  function seedTests(db) {
+    var tests = [
+      ["rosa.diaz", "Rosa Diaz", "Cashier", "test1234",
+        { phone: "555-0119", address: "21 Rizal Ave, Cebu City", emergency: "Marco Diaz (spouse) · 555-0101",
+          position: "Cashier", hired: "2024-03-11", notes: "Prefers weekend shifts." }],
+      ["jose.ramos", "Jose Ramos", "Supervisor", "test1234",
+        { phone: "555-0133", address: "78 Mango St, Mandaue City", emergency: "Liza Ramos (sister) · 555-0102",
+          position: "Supervisor", hired: "2022-07-01", notes: "Approves leave requests." }],
+      ["ana.cruz", "Ana Cruz", "Clerk", "test1234",
+        { phone: "555-0156", address: "5 Sampaguita Rd, Lapu-Lapu City", emergency: "Nora Cruz (mother) · 555-0103",
+          position: "Clerk", hired: "2025-01-20", notes: "" }]
+    ];
+    var chain = Promise.resolve();
+    tests.forEach(function (t) {
+      chain = chain.then(function () {
+        if (findUser(db, t[0])) return null;
+        return mkUser(db, t[0], t[1], "staff", t[3], t[4]);
       });
-    }
-    return mk("admin", "Site Admin", "admin", "admin1234").then(function () {
-      return mk("demo", "Demo User", "staff", "demo1234");
-    }).then(function () { save(db); });
+    });
+    return chain;
+  }
+  function seed(db) {
+    return mkUser(db, "admin", "Site Admin", "admin", "admin1234").then(function () {
+      return mkUser(db, "demo", "Demo User", "staff", "demo1234");
+    }).then(function () {
+      return seedTests(db);
+    }).then(function () { db.seedV = SEED_V; save(db); });
   }
   function ensureSeed() {
     if (!seeded) {
       seeded = Promise.resolve().then(function () {
         var loaded = load();
-        if (!loaded.fresh) return loaded.db;
+        if (!loaded.fresh) {
+          if ((loaded.db.seedV || 0) < SEED_V) {
+            return seedTests(loaded.db).then(function () {
+              loaded.db.seedV = SEED_V; save(loaded.db); return loaded.db;
+            });
+          }
+          return loaded.db;
+        }
         var db = loaded.db;
         return seed(db).then(function () { return db; });
       });
     }
     return seeded;
   }
-  function withDb(fn) {
+  function withDb(fn, write) {
     return ensureSeed().then(function () {
       var loaded = load();
       var out = fn(loaded.db);
-      save(loaded.db);
+      /* Reads never write: a background status check must not be able to
+         stamp a blank database over seeds another tab just wrote. */
+      if (write) save(loaded.db);
       return out;
     });
   }
@@ -365,7 +402,7 @@ var Demo = (function () {
         };
         db.users.push(user);
         return { token: issueToken(db, user.id), userId: user.id };
-      });
+      }, true);
     }
     if (method === "POST" && route === "/login") {
       return withDb(function (db) {
@@ -377,13 +414,13 @@ var Demo = (function () {
           return fail(403, "Your account is switched off. Ask an admin to switch it on.");
         }
         return { token: issueToken(db, user.id), userId: user.id };
-      }).then(function (r) { return (r && typeof r.then === "function") ? r : r; });
+      }, true).then(function (r) { return (r && typeof r.then === "function") ? r : r; });
     }
     if (method === "POST" && route === "/logout") {
       return withDb(function (db) {
         if (token && db.sessions && db.sessions[token]) delete db.sessions[token];
         return { ok: true };
-      });
+      }, true);
     }
     if (method === "GET" && route === "/state") {
       return withDb(function (db) {
@@ -405,7 +442,7 @@ var Demo = (function () {
           return fail(e.status || 500, e.message);
         }
         return view(db, self.id);
-      }).then(function (r) { return (r && typeof r.then === "function") ? r : r; });
+      }, true).then(function (r) { return (r && typeof r.then === "function") ? r : r; });
     }
     if (method === "POST" && route === "/migrate") {
       return withDb(function (db) {
@@ -426,7 +463,7 @@ var Demo = (function () {
         var who = sid ? users.filter(function (u) { return u.id === sid; })[0] : null;
         if (!who) return { ok: true };
         return { token: issueToken(db, who.id), userId: who.id };
-      }).then(function (r) { return (r && typeof r.then === "function") ? r : r; });
+      }, true).then(function (r) { return (r && typeof r.then === "function") ? r : r; });
     }
     return fail(404, "Unknown demo endpoint.");
   }
