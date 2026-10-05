@@ -156,6 +156,13 @@ input,select{font:inherit}
 }
 .field input:focus,.field select:focus{outline:2px solid var(--signal);outline-offset:2px;border-color:var(--signal)}
 .field input::placeholder{color:var(--placeholder)}
+.field textarea{
+  width:100%;padding:13px 15px;border-radius:12px;resize:vertical;font:inherit;
+  border:1px solid var(--line);background:var(--field-input);color:var(--paper);
+}
+.field textarea::placeholder{color:var(--placeholder)}
+.field textarea:focus{outline:2px solid var(--signal);outline-offset:2px;border-color:var(--signal)}
+.field input:disabled,.field textarea:disabled,.field select:disabled{opacity:.55}
 .note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
 .err{color:var(--alert);font-size:.9rem;margin:0 0 12px;min-height:1.2em}
 .hidden{display:none !important}
@@ -390,7 +397,7 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
   table{font-size:.88rem}
   .brand-logo{height:clamp(56px,16vw,84px)}
   /* 16px stops iOS/Android zooming the page whenever a field gets focus */
-  input,select,textarea,.field input,.field select,.sched-kind,.sched-times input,
+  input,select,textarea,.field input,.field select,.field textarea,.sched-kind,.sched-times input,
   #schedDlg textarea,#impDlg textarea,#actBody textarea{font-size:16px}
   #schedDlg,#actDlg,#impDlg{width:96vw;max-height:92vh}
 }
@@ -467,6 +474,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <button class="tab" role="tab" data-view="clock" aria-selected="true">Clock</button>
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
+      <button class="tab" role="tab" data-view="employees" aria-selected="false">Employees</button>
       <a class="nav-leave" id="btnLeave" href="https://cmph48dib0036y043ztgjjk9i.zapier.app/page" target="_blank" rel="noopener noreferrer">Leave Request Form <span aria-hidden="true">↗</span></a>
     </div>
 
@@ -562,6 +570,89 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <label class="field" style="flex:0 0 auto"><span>Self sign-up</span>
             <select id="tSignup"><option value="on">Anyone can create an account</option><option value="off">Admin adds people only</option></select>
           </label>
+        </div>
+      </div>
+    <!-- employees view -->
+    <div id="vEmployees" class="hidden">
+      <div class="panel block" style="margin-bottom:16px" id="empRosterWrap">
+        <h2>People</h2>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Name</th><th>Username</th><th>Position</th><th>Phone</th><th></th></tr></thead>
+            <tbody id="empBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel block" style="margin-bottom:16px">
+        <h2 id="empFormTitle">Employee information</h2>
+        <p class="note" id="empFormNote" style="margin:-8px 0 14px"></p>
+        <label class="field"><span>Username (sign-in name, never changes)</span>
+          <input type="text" id="empUser" disabled>
+        </label>
+        <label class="field"><span>Full name</span>
+          <input type="text" id="empName" maxlength="60" autocomplete="off">
+        </label>
+        <label class="field"><span>Phone</span>
+          <input type="tel" id="empPhone" maxlength="30" autocomplete="off">
+        </label>
+        <label class="field"><span>Address</span>
+          <input type="text" id="empAddr" maxlength="120" autocomplete="off">
+        </label>
+        <label class="field"><span>Emergency contact</span>
+          <input type="text" id="empEmg" maxlength="120" autocomplete="off">
+        </label>
+        <label class="field"><span>Position</span>
+          <input type="text" id="empPos" maxlength="60" autocomplete="off">
+        </label>
+        <label class="field"><span>Hire date</span>
+          <input type="date" id="empHired">
+        </label>
+        <label class="field"><span>Notes</span>
+          <textarea id="empNotes" rows="2" maxlength="500"></textarea>
+        </label>
+        <p class="err" id="empErr"></p>
+        <div class="dlg-actions" style="justify-content:flex-start;margin-top:0">
+          <button class="btn btn-in" id="empSave" type="button">Save changes</button>
+        </div>
+      </div>
+
+      <div class="panel block" id="empAddWrap" style="margin-bottom:16px">
+        <h2>Add a new user</h2>
+        <p class="note" style="margin:-8px 0 14px">Only an admin adds people. The new user signs in with the username and passcode below.</p>
+        <label class="field"><span>Username</span>
+          <input type="text" id="empAddUser" maxlength="20" autocapitalize="none" spellcheck="false" autocomplete="off">
+        </label>
+        <label class="field"><span>Full name</span>
+          <input type="text" id="empAddName" maxlength="60" autocomplete="off">
+        </label>
+        <label class="field"><span>Starting passcode</span>
+          <input type="password" id="empAddPin" maxlength="32" autocomplete="new-password">
+        </label>
+        <label class="field"><span>Repeat passcode</span>
+          <input type="password" id="empAddPin2" maxlength="32" autocomplete="new-password">
+        </label>
+        <label class="field"><span>Phone</span>
+          <input type="tel" id="empAddPhone" maxlength="30" autocomplete="off">
+        </label>
+        <label class="field"><span>Address</span>
+          <input type="text" id="empAddAddr" maxlength="120" autocomplete="off">
+        </label>
+        <label class="field"><span>Emergency contact</span>
+          <input type="text" id="empAddEmg" maxlength="120" autocomplete="off">
+        </label>
+        <label class="field"><span>Position</span>
+          <input type="text" id="empAddPos" maxlength="60" autocomplete="off">
+        </label>
+        <label class="field"><span>Hire date</span>
+          <input type="date" id="empAddHired">
+        </label>
+        <label class="field"><span>Notes</span>
+          <textarea id="empAddNotes" rows="2" maxlength="500"></textarea>
+        </label>
+        <p class="err" id="empAddErr"></p>
+        <div class="dlg-actions" style="justify-content:flex-start;margin-top:0">
+          <button class="btn btn-in" id="empAdd" type="button">Create account</button>
         </div>
       </div>
     </div>
@@ -1552,6 +1643,7 @@ function render(){
   renderClock(u);
   if(view === "sheet") renderSheet(u);
   if(view === "team" && u.role === "admin") renderTeam();
+  if(view === "employees") renderEmployees();
   tick();
 }
 
@@ -1779,6 +1871,115 @@ function renderTeam(){
   });
   $("tSignup").value = state.settings.signup ? "on" : "off";
 }
+
+/* ---------------- employees ----------------
+   Admins see everyone and edit anything personal (role, passcode and schedule
+   stay on the Team tab); staff see only their own card, and position and hire
+   date arrive read-only. The form never refills mid-typing: background syncs
+   rebuild the roster, but typed text is left alone until saved. */
+var empSel = null, empDirty = false;
+["empName","empPhone","empAddr","empEmg","empPos","empHired","empNotes"].forEach(function(id){
+  $(id).addEventListener("input", function(){ empDirty = true; });
+});
+function empTarget(){
+  var u = currentUser(); if(!u) return null;
+  if(u.role !== "admin") return u;
+  return state.users.filter(function(x){ return x.id === empSel; })[0] || u;
+}
+function renderEmployees(){
+  var u = currentUser(); if(!u) return;
+  var isAdmin = u.role === "admin";
+  show($("empRosterWrap"), isAdmin);
+  show($("empAddWrap"), isAdmin);
+  if(isAdmin){
+    var body = $("empBody"); body.innerHTML = "";
+    state.users.forEach(function(x){
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + esc(x.name) + "</td><td>@" + esc(x.username) + "</td>" +
+        "<td>" + esc(x.position || "—") + "</td><td>" + esc(x.phone || "—") + "</td>" +
+        '<td style="text-align:right;white-space:nowrap"><button class="btn btn-quiet" data-emp="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Edit</button></td>';
+      body.appendChild(tr);
+    });
+  }
+  var t = empTarget(); if(!t) return;
+  if(empSel !== t.id){ empSel = t.id; empDirty = false; }
+  $("empFormTitle").textContent = isAdmin ? "Employee information" : "My information";
+  $("empFormNote").textContent = isAdmin
+    ? "Editing " + t.name + " (@" + t.username + "). Role, passcode and schedule stay on the Team tab."
+    : "Your position and hire date are kept by your admin.";
+  if(!empDirty){
+    $("empUser").value = t.username;
+    $("empName").value = t.name || "";
+    $("empPhone").value = t.phone || "";
+    $("empAddr").value = t.address || "";
+    $("empEmg").value = t.emergency || "";
+    $("empPos").value = t.position || "";
+    $("empHired").value = t.hired || "";
+    $("empNotes").value = t.notes || "";
+  }
+  $("empPos").disabled = !isAdmin;
+  $("empHired").disabled = !isAdmin;
+  $("empErr").textContent = "";
+}
+$("empBody").addEventListener("click", function(ev){
+  var id = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-emp");
+  if(!id) return;
+  empSel = id; empDirty = false;
+  renderEmployees();
+  $("empFormTitle").scrollIntoView();
+});
+$("empSave").addEventListener("click", function(){
+  var u = currentUser(); if(!u) return;
+  var isAdmin = u.role === "admin";
+  var t = empTarget(); if(!t) return;
+  var err = $("empErr");
+  var rec = state.users.filter(function(x){ return x.id === t.id; })[0];
+  if(!rec){ err.textContent = "That person is gone — pick someone else."; return; }
+  var name = $("empName").value.trim();
+  if(name.length < 2){ err.textContent = "Enter the name that should appear on the timesheet."; return; }
+  rec.name = name;
+  rec.phone = $("empPhone").value.trim();
+  rec.address = $("empAddr").value.trim();
+  rec.emergency = $("empEmg").value.trim();
+  rec.notes = $("empNotes").value.trim();
+  if(isAdmin){
+    rec.position = $("empPos").value.trim();
+    rec.hired = $("empHired").value;
+  }
+  err.textContent = "";
+  empDirty = false;
+  renderEmployees();
+  save().then(function(ok){
+    toast(ok ? "Employee information saved." : "Not saved yet — keep this tab open, it retries by itself.");
+  });
+});
+$("empAdd").addEventListener("click", function(){
+  var u = currentUser(); if(!u || u.role !== "admin") return;
+  var err = $("empAddErr");
+  var uname = $("empAddUser").value.trim().toLowerCase();
+  var name = $("empAddName").value.trim();
+  var pin = $("empAddPin").value, pin2 = $("empAddPin2").value;
+  if(!validUsername(uname)){ err.textContent = "Usernames are 3-20 characters: letters, numbers, dot, dash or underscore."; return; }
+  if(state.users.some(function(x){ return x.username === uname; })){ err.textContent = "That username is taken."; return; }
+  if(name.length < 2){ err.textContent = "Enter the name that should appear on the timesheet."; return; }
+  if(pin.length < 4){ err.textContent = "The passcode needs at least 4 characters."; return; }
+  if(pin !== pin2){ err.textContent = "The two passcodes don't match."; return; }
+  var salt = randSalt();
+  hashPin(pin, salt).then(function(h){
+    var nu = { id: nextId("u"), username: uname, name: name, salt: salt, hash: h,
+      role: "staff", createdAt: new Date().toISOString(), active: true, sched: null,
+      phone: $("empAddPhone").value.trim(), address: $("empAddAddr").value.trim(),
+      emergency: $("empAddEmg").value.trim(), position: $("empAddPos").value.trim(),
+      hired: $("empAddHired").value, notes: $("empAddNotes").value.trim() };
+    state.users.push(nu);
+    ["empAddUser","empAddName","empAddPin","empAddPin2","empAddPhone","empAddAddr","empAddEmg","empAddPos","empAddHired","empAddNotes"].forEach(function(id){ $(id).value = ""; });
+    err.textContent = "";
+    renderEmployees();
+    return save().then(function(ok){
+      toast(ok ? name + " can now sign in." : "Not saved yet — " + name + " isn't on the server. Keep this tab open (it retries by itself).");
+    });
+  });
+});
 
 /* ---------------- generic action dialog ---------------- */
 var actDlg = $("actDlg");
@@ -2136,6 +2337,7 @@ function setView(v){
   show($("vClock"), v === "clock");
   show($("vSheet"), v === "sheet");
   show($("vTeam"), v === "team");
+  show($("vEmployees"), v === "employees");
   Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
     t.setAttribute("aria-selected", String(t.dataset.view === v));
   });

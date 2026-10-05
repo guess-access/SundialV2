@@ -163,17 +163,48 @@ var Demo = (function () {
     function deny(status, msg) { var e = new Error(msg); e.status = status; throw e; }
 
     if (coll === "users") {
-      if (!isAdmin) deny(403, "Only an admin can change accounts or passcodes.");
-      stored = {};
-      if (existing) Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
-      Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
-      if (typeof stored.username === "string") stored.username = stored.username.trim().toLowerCase();
-      stored.role = stored.role === "admin" ? "admin" : "staff";
-      stored.active = stored.active !== false;
-      if (existing && existing.role === "admin" && existing.active !== false) {
-        var stillAdmin = (stored.role === "admin") && (stored.active !== false);
-        if (!stillAdmin && !hasOtherActiveAdmin(db, existing.id)) {
-          deny(403, "Add another admin before switching this one off.");
+      /* Accounts and passcodes are an admin's job - with one exception: people
+         may update their own employee information (name and contact details).
+         Position and hire date stay admin-only, as do username, role, active
+         state, passcode and schedule. */
+      if (!isAdmin) {
+        var SELF_INFO = ["name", "phone", "address", "emergency", "notes"];
+        if (!existing || item.id !== self.id || existing.id !== self.id) {
+          deny(403, "You can only change your own information.");
+        }
+        /* The page saves whole records, so untouched fields (role, schedule,
+           passcode hash) ride along: only an actual change to a protected
+           field is refused. */
+        var touched = Object.keys(item), ti;
+        for (ti = 0; ti < touched.length; ti++) {
+          var k = touched[ti];
+          if (k === "id" || SELF_INFO.indexOf(k) >= 0) continue;
+          var a = item[k], b = existing[k];
+          var sameVal = a === b || (a && b && typeof a === "object" && typeof b === "object" &&
+            JSON.stringify(a) === JSON.stringify(b));
+          if (!sameVal) deny(403, "Only an admin can change that.");
+        }
+        stored = {};
+        Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
+        SELF_INFO.forEach(function (k) {
+          if (item[k] !== undefined && item[k] !== null) stored[k] = String(item[k]);
+        });
+        if (typeof stored.name === "string") {
+          if (stored.name.trim().length < 2) deny(400, "Enter the name that should appear on the timesheet.");
+          stored.name = stored.name.trim();
+        }
+      } else {
+        stored = {};
+        if (existing) Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
+        Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
+        if (typeof stored.username === "string") stored.username = stored.username.trim().toLowerCase();
+        stored.role = stored.role === "admin" ? "admin" : "staff";
+        stored.active = stored.active !== false;
+        if (existing && existing.role === "admin" && existing.active !== false) {
+          var stillAdmin = (stored.role === "admin") && (stored.active !== false);
+          if (!stillAdmin && !hasOtherActiveAdmin(db, existing.id)) {
+            deny(403, "Add another admin before switching this one off.");
+          }
         }
       }
     } else if (coll === "entries") {

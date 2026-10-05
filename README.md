@@ -214,6 +214,12 @@ and file requests; the server refuses a staff passcode change, a rewrite of an a
 recorded shift, a deleted shift, a change to somebody else's record, and approving their own
 request — and nobody can switch off the last admin.
 
+The one exception is employee information: people may update their **own** name, phone,
+address, emergency contact and notes (the Employees tab). Position and hire date stay
+admin-only, as do username, role, active state, passcode and schedule — the server
+compares against what's on file, so sending a whole record back never smuggles a
+promotion, and adding accounts stays admin-only.
+
 ## Demo mode (no backend)
 
 On plain static hosting (GitHub Pages) there are no functions behind `/api/*`,
