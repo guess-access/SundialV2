@@ -238,6 +238,10 @@ Demo accounts (seeded on first use, sign-ups stay open for real ones):
 | `demo` | `demo1234` | Staff — Clock, My timesheet, leave and schedule requests |
 | `rosa.diaz`, `jose.ramos`, `ana.cruz` | `test1234` | Sample staff with full profiles, seeded so the roster shows real information. Switch one off on the Team tab to retire it. |
 
+The demo staff profile ships filled in, and older demo databases fill their
+blanks on next load (tracked by `seedV`) — anything already typed is never
+overwritten.
+
 Be clear-eyed about what this is: demo sign-in is convenience, not security.
 The passcodes and the data sit in the browser, readable by anyone with the
 device. The app says so on screen ("Demo mode — no server connected"). Real

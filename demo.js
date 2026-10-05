@@ -286,7 +286,21 @@ var Demo = (function () {
      use the same scheme the app sends, so login compares like for like.
      seedV migrates older demo databases forward without touching anyone
      already on file: missing sample accounts are added, nothing is removed. */
-  var SEED_V = 2;
+  var SEED_V = 3;
+  /* Sample profile for the demo staff account, used for fresh seeds and to
+     fill blanks on older ones - never overwrites anything already typed. */
+  var DEMO_INFO = { phone: "555-0100", address: "9 Mabini St, Cebu City",
+    emergency: "Ramon Cruz (brother) · 555-0104",
+    position: "Staff", hired: "2024-06-03", notes: "" };
+  function backfillDemo(db) {
+    var d = findUser(db, "demo");
+    if (!d) return false;
+    var changed = false;
+    Object.keys(DEMO_INFO).forEach(function (k) {
+      if (!d[k]) { d[k] = DEMO_INFO[k]; changed = true; }
+    });
+    return changed;
+  }
   function mkUser(db, username, name, role, pass, info) {
     var salt = randHex(12);
     return sha(pass, salt).then(function (h) {
@@ -322,7 +336,7 @@ var Demo = (function () {
   }
   function seed(db) {
     return mkUser(db, "admin", "Site Admin", "admin", "admin1234").then(function () {
-      return mkUser(db, "demo", "Demo User", "staff", "demo1234");
+      return mkUser(db, "demo", "Demo User", "staff", "demo1234", DEMO_INFO);
     }).then(function () {
       return seedTests(db);
     }).then(function () { db.seedV = SEED_V; save(db); });
@@ -333,6 +347,7 @@ var Demo = (function () {
         var loaded = load();
         if (!loaded.fresh) {
           if ((loaded.db.seedV || 0) < SEED_V) {
+            backfillDemo(loaded.db);
             return seedTests(loaded.db).then(function () {
               loaded.db.seedV = SEED_V; save(loaded.db); return loaded.db;
             });
