@@ -92,6 +92,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <label class="fld"><span>Passcode</span>
           <input type="password" name="p" maxlength="32" placeholder="At least 4 characters" required>
         </label>
+        <p class="heroauth__err" id="heroAuthErr" role="alert"></p>
         <button class="btn heroauth__go" type="submit">Sign in</button>
         <p class="heroauth__foot">Need an account? Ask your admin to add you.</p>
       </form>
@@ -133,26 +134,101 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
   setInterval(tick, 1000);
 })();
 
-// The hero sign-in does not submit anywhere - it hands the credentials over to
-// the app. They ride in sessionStorage rather than the query string, so a
-// passcode never lands in a URL, a history entry or a server log. Pressing
-// Sign in first lights the loading line above the form - the same bar the
-// video-intro frame uses - so the handoff reads as one motion.
+// The hero sign-in performs the app's own login: username check, salt fetch,
+// passcode hash, login call - the same exchange the app runs on its page. The
+// session lands in localStorage under the app's key, so app.html opens
+// already inside. Whatever cannot sign in here (first setup, no backend)
+// falls back to the handoff: credentials ride sessionStorage to the app,
+// never the query string, so a passcode never lands in a URL or a log.
 (function () {
   var form = document.getElementById('heroAuth');
   if (!form) return;
+  var errBox = document.getElementById('heroAuthErr');
+  var go = form.querySelector('button[type="submit"]');
+  var goLabel = go ? go.textContent : 'Sign in';
+  var AUTH_KEY = 'shiftclock.auth';
+
+  function fail(msg) {
+    var card = form.closest('.markcard');
+    if (card) card.classList.remove('markcard--busy');
+    if (go) { go.disabled = false; go.textContent = goLabel; }
+    if (errBox) errBox.textContent = msg;
+  }
+  function api(method, path, body) {
+    var opts = { method: method, headers: {}, cache: 'no-store' };
+    if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch('/api' + path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          var e = new Error(data.error || 'The server said no (' + r.status + ').');
+          e.status = r.status; throw e;
+        }
+        return data;
+      });
+    }, function () {
+      var e = new Error("Can't reach the server. Check your connection."); e.status = 0; throw e;
+    });
+  }
+  function weakHash(str) {
+    var h1 = 0x811c9dc5, h2 = 0x1b873593;
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      h1 = (h1 ^ c) * 16777619 >>> 0;
+      h2 = ((h2 + c) * 2654435761 ^ (h2 >>> 5)) >>> 0;
+    }
+    return ('00000000' + h1.toString(16)).slice(-8) + ('00000000' + h2.toString(16)).slice(-8);
+  }
+  function hashPin(pin, salt) {
+    var msg = salt + '|' + pin;
+    if (self.crypto && crypto.subtle && crypto.subtle.digest && self.isSecureContext) {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg)).then(function (buf) {
+        return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      }).catch(function () { return 'w:' + weakHash(msg); });
+    }
+    return Promise.resolve('w:' + weakHash(msg));
+  }
+  function validUsername(u) { return /^[a-z0-9._-]{3,20}$/.test(u); }
+  function handoff(u, p) {
+    try { sessionStorage.setItem('sundial-login', JSON.stringify({ u: u, p: p })); } catch (e) {}
+    location.href = 'app.html';
+  }
+
+  form.addEventListener('input', function () { if (errBox) errBox.textContent = ''; });
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var u = form.querySelector('[name="u"]').value.trim();
+    if (errBox) errBox.textContent = '';
+    var u = form.querySelector('[name="u"]').value.trim().toLowerCase();
     var p = form.querySelector('[name="p"]').value;
-    try { sessionStorage.setItem('sundial-login', JSON.stringify({ u: u, p: p })); } catch (err) {}
+    if (!validUsername(u)) { fail('Usernames are 3-20 characters: letters, numbers, dot, dash or underscore.'); return; }
+    if (!p) { fail('Enter your passcode.'); return; }
     var card = form.closest('.markcard');
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!card || reduce) { location.href = 'app.html'; return; }
-    var go = form.querySelector('button[type="submit"]');
-    card.classList.add('markcard--busy');
+    if (card && !reduce) card.classList.add('markcard--busy');
     if (go) { go.disabled = true; go.textContent = 'Signing in…'; }
-    setTimeout(function () { location.href = 'app.html'; }, 900);
+    var t0 = Date.now();
+    function done() {
+      var wait = reduce ? 0 : Math.max(0, 700 - (Date.now() - t0));
+      setTimeout(function () { location.href = 'app.html'; }, wait);
+    }
+    api('GET', '/status').then(function (s) {
+      if (!s || s.needsSetup) { handoff(u, p); return null; }
+      return api('GET', '/salt?u=' + encodeURIComponent(u)).then(function (r) {
+        return hashPin(p, r.salt);
+      }).then(function (h) {
+        return api('POST', '/login', { username: u, hash: h });
+      }).then(function (res) {
+        if (!res || !res.token || !res.userId) throw new Error('The server answered, but without a session. Try again.');
+        try {
+          localStorage.setItem(AUTH_KEY, JSON.stringify({ token: res.token, userId: res.userId }));
+          sessionStorage.removeItem('sundial-login');
+        } catch (ex) {}
+        done();
+      });
+    }).catch(function (err) {
+      // No backend here: carry the credentials over and let the app explain.
+      if (err && (err.status === 0 || err.status === 404)) { handoff(u, p); return; }
+      fail((err && err.message) || "Can't reach the server.");
+    });
   });
 })();
 </script>
