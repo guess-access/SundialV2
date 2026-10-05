@@ -167,10 +167,10 @@ and Netlify alike — with no build step.
 | File | Purpose |
 | --- | --- |
 | `index.html` | The site root — the front page: headline, the app's loading screen and sign-in. |
-| `demo.js` | Demo backend both pages share: the nine `/api/*` endpoints re-implemented in the browser against `localStorage`. Used only when no server answers. |
+| `demo.js` | Demo backend the front page uses: the nine `/api/*` endpoints re-implemented in the browser against `localStorage`. The app carries its own copy inline, so `app.html` stands alone — change both together. |
 | `about.html` | About us — the mark in motion, product, colours, asset download. Shares `site.css`. |
 | `site.css` | The one stylesheet behind `index.html` and `about.html`, dark by default with a light switch. |
-| `app.html` | The app — clock, timesheets, leave, payroll. Everything a signed-in person sees. Speaks the same design language as the front page: Jakarta display type with Inter body, the teal/coral/lime accents, pill buttons, 12px fields, 20px cards, and the same dark-by-default switch (the `sundial-theme` choice is shared, so the theme follows you between pages). |
+| `app.html` | The app — clock, timesheets, leave, payroll. Everything a signed-in person sees. Self-contained under the Sundial Solstice brand (own login, demo backend inlined); the PNG export still draws `logo.png` onto the sheet. Speaks the same design language as the front page: Jakarta display type with Inter body, the teal/coral/lime accents, pill buttons, 12px fields, 20px cards, and the same dark-by-default switch (the `sundial-theme` choice is shared, so the theme follows you between pages). |
 | `sundial-mark.svg` | The animated mark on its own: rotating orbits, pulsing dot, self-contained CSS. |
 | `netlify/functions/*.js` | The backend: `status`, `salt`, `signup`, `login`, `logout`, `state`, `sync`, `migrate`, `health`. |
 | `lib/store.js` | Shared storage and permission code the functions are bundled with. |

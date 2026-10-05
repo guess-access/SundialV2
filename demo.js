@@ -1,4 +1,6 @@
 /* Demo backend for the Sundial site - used only when no /api server answers.
+ * MIRROR NOTE: this file is copied inline into app.html so the app stands
+ * alone. If one changes, change the other - the front page uses this file.
  *
  * On plain static hosting (GitHub Pages) the Netlify functions are absent, so
  * /api/status answers 404. Both pages then talk to this instead: the same nine
