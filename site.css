@@ -381,9 +381,6 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
 /* ---------- footer ---------- */
 .foot{padding:44px 0 56px;border-top:1px solid var(--line);margin-top:92px}
 .foot__in{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}
-.foot__links{display:flex;flex-wrap:wrap;gap:22px;font-size:14.5px}
-.foot__links a{color:var(--muted);text-decoration:none}
-.foot__links a:hover{color:var(--teal-deep)}
 .foot small{color:var(--muted);font-size:13.5px}
 
 /* ---------- reduced motion ---------- */
