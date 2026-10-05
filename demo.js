@@ -338,7 +338,7 @@ var Demo = (function () {
     return chain;
   }
   function seed(db) {
-    return mkUser(db, "admin", "Site Admin", "admin", "admin1234").then(function () {
+    return mkUser(db, "site.admin", "Site Admin", "admin", "admin1234").then(function () {
       return mkUser(db, "demo", "Demo User", "staff", "demo1234", DEMO_INFO);
     }).then(function () {
       return seedTests(db);
