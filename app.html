@@ -378,6 +378,21 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 }
 .demo-hint{margin:14px 0 0;text-align:center;font-size:.85rem;color:var(--muted)}
 .demo-hint b{color:var(--paper);font-weight:600}
+/* my-info view speaks the about page's section language: kicker, head, labelled panels */
+.emp-head{max-width:66ch;margin:2px 0 20px}
+.emp-kicker{
+  margin:0;font-family:var(--display);font-weight:700;font-size:12.5px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--alert);
+}
+.emp-head h2{font-family:var(--display);font-size:clamp(1.6rem,4vw,2.2rem);font-weight:800;letter-spacing:-.02em;margin:10px 0 0}
+.emp-head p{color:var(--muted);font-size:.95rem;margin:10px 0 0}
+.emp-label{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--line-soft);
+  font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);
+}
+.emp-label span:last-child{color:var(--signal)}
 @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 
 /* ---------- phones & tablets: single column, scrollable tables, no zoom jump ---------- */
@@ -474,7 +489,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <button class="tab" role="tab" data-view="clock" aria-selected="true">Clock</button>
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
-      <button class="tab" role="tab" data-view="employees" aria-selected="false">Employees</button>
+      <button class="tab" role="tab" data-view="employees" aria-selected="false">My Info</button>
       <a class="nav-leave" id="btnLeave" href="https://cmph48dib0036y043ztgjjk9i.zapier.app/page" target="_blank" rel="noopener noreferrer">Leave Request Form <span aria-hidden="true">↗</span></a>
     </div>
 
@@ -572,10 +587,15 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           </label>
         </div>
       </div>
-    <!-- employees view -->
+    <!-- my info view: the about page's section language - kicker, head, labelled panels -->
     <div id="vEmployees" class="hidden">
+      <div class="emp-head">
+        <p class="emp-kicker">Employee information</p>
+        <h2>My info</h2>
+        <p id="empLede"></p>
+      </div>
       <div class="panel block" style="margin-bottom:16px" id="empRosterWrap">
-        <h2>People</h2>
+        <div class="emp-label"><span>People</span><span id="empCount"></span></div>
         <div class="scroller">
           <table>
             <thead><tr><th>Name</th><th>Username</th><th>Position</th><th>Phone</th><th></th></tr></thead>
@@ -585,8 +605,8 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       </div>
 
       <div class="panel block" style="margin-bottom:16px">
-        <h2 id="empFormTitle">Employee information</h2>
-        <p class="note" id="empFormNote" style="margin:-8px 0 14px"></p>
+        <div class="emp-label"><span id="empFormTitle">Employee information</span><span id="empFormWho"></span></div>
+        <p class="note" id="empFormNote" style="margin:0 0 14px"></p>
         <label class="field"><span>Username (sign-in name, never changes)</span>
           <input type="text" id="empUser" disabled>
         </label>
@@ -618,8 +638,8 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       </div>
 
       <div class="panel block" id="empAddWrap" style="margin-bottom:16px">
-        <h2>Add a new user</h2>
-        <p class="note" style="margin:-8px 0 14px">Only an admin adds people. The new user signs in with the username and passcode below.</p>
+        <div class="emp-label"><span>Add a new user</span><span>Admin only</span></div>
+        <p class="note" style="margin:0 0 14px">Only an admin adds people. The new user signs in with the username and passcode below.</p>
         <label class="field"><span>Username</span>
           <input type="text" id="empAddUser" maxlength="20" autocapitalize="none" spellcheck="false" autocomplete="off">
         </label>
@@ -1903,9 +1923,15 @@ function renderEmployees(){
   }
   var t = empTarget(); if(!t) return;
   if(empSel !== t.id){ empSel = t.id; empDirty = false; }
-  $("empFormTitle").textContent = isAdmin ? "Employee information" : "My information";
+  var n = state.users.length;
+  $("empCount").textContent = n + (n === 1 ? " person" : " people");
+  $("empLede").textContent = isAdmin
+    ? "Everyone on the roster, kept in one place. Pick anyone to edit their details, or add someone new below."
+    : "Your details, exactly as payroll sees them. Tell your admin about a new position or hire date.";
+  $("empFormTitle").textContent = isAdmin ? "Employee information" : "My details";
+  $("empFormWho").textContent = "@" + t.username;
   $("empFormNote").textContent = isAdmin
-    ? "Editing " + t.name + " (@" + t.username + "). Role, passcode and schedule stay on the Team tab."
+    ? "Role, passcode and schedule stay on the Team tab."
     : "Your position and hire date are kept by your admin.";
   if(!empDirty){
     $("empUser").value = t.username;

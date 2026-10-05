@@ -215,7 +215,8 @@ recorded shift, a deleted shift, a change to somebody else's record, and approvi
 request — and nobody can switch off the last admin.
 
 The one exception is employee information: people may update their **own** name, phone,
-address, emergency contact and notes (the Employees tab). Position and hire date stay
+address, emergency contact and notes (the My Info tab, dressed in the about page's
+section style). Position and hire date stay
 admin-only, as do username, role, active state, passcode and schedule — the server
 compares against what's on file, so sending a whole record back never smuggles a
 promotion, and adding accounts stays admin-only.
