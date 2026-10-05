@@ -364,6 +364,13 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sched-row[data-kind="fixed"] .t4,
 .sched-row[data-kind="fixed"] .sched-plus{display:none}
 
+/* ---------- footer: the common one ---------- */
+.foot{margin-top:64px;padding:28px 0 8px;border-top:1px solid var(--line-soft)}
+.foot__in{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;justify-content:space-between}
+.foot-brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--paper);font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-.02em}
+.foot-mark{width:30px;height:30px;flex:none}
+.foot small{color:var(--muted);font-size:13.5px}
+
 /* ---------- theme switch: dark is the default, this flips to the white one ---------- */
 .theme-toggle{
   position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;z-index:60;
@@ -688,6 +695,17 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       </div>
     </div>
   </section>
+
+  <!-- ============ FOOTER: the common one ============ -->
+  <footer class="foot">
+    <div class="foot__in">
+      <a class="foot-brand" href="index.html">
+        <img class="foot-mark" src="sundial-mark.svg" alt="">
+        <span>Sundial Solstice</span>
+      </a>
+      <small>© 2026 Sundial Solstice. All rights reserved.</small>
+    </div>
+  </footer>
 </div>
 
 <dialog id="schedDlg">
