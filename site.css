@@ -185,6 +185,11 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
   content:"";position:absolute;left:0;right:0;bottom:.06em;height:.14em;
   background:var(--coral);opacity:.5;border-radius:4px;
 }
+/* two-column hero: hold the first line to a single line at a size that fits it */
+@media(min-width:961px){
+  .hero h1{font-size:clamp(40px,4.6vw,60px)}
+  .hero h1 .l1{white-space:nowrap}
+}
 .lede{font-size:clamp(16.5px,1.5vw,19px);color:var(--muted);max-width:52ch;margin:20px 0 0}
 .hero__act{display:flex;margin-top:28px}
 
