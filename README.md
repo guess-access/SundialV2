@@ -167,6 +167,7 @@ and Netlify alike — with no build step.
 | File | Purpose |
 | --- | --- |
 | `index.html` | The site root — the front page: headline, the app's loading screen and sign-in. |
+| `demo.js` | Demo backend both pages share: the nine `/api/*` endpoints re-implemented in the browser against `localStorage`. Used only when no server answers. |
 | `about.html` | About us — the mark in motion, product, colours, asset download. Shares `site.css`. |
 | `site.css` | The one stylesheet behind `index.html` and `about.html`, dark by default with a light switch. |
 | `app.html` | The app — clock, timesheets, leave, payroll. Everything a signed-in person sees. Speaks the same design language as the front page: Jakarta display type with Inter body, the teal/coral/lime accents, pill buttons, 12px fields, 20px cards, and the same dark-by-default switch (the `sundial-theme` choice is shared, so the theme follows you between pages). |
@@ -212,6 +213,29 @@ editing and deleting shifts for other people. Anyone else may only clock their o
 and file requests; the server refuses a staff passcode change, a rewrite of an already
 recorded shift, a deleted shift, a change to somebody else's record, and approving their own
 request — and nobody can switch off the last admin.
+
+## Demo mode (no backend)
+
+On plain static hosting (GitHub Pages) there are no functions behind `/api/*`,
+so both pages fall back to `demo.js`: the same nine endpoints, the same
+validation and the same permission rules, running in the browser against
+`localStorage` (`sundial-demo-db`). It engages automatically when `/api/status`
+is missing, and a reload re-probes — so the moment a real backend is deployed,
+it wins again with no code change.
+
+Demo accounts (seeded on first use, sign-ups stay open for real ones):
+
+| Username | Passcode | View |
+| --- | --- | --- |
+| `admin` | `admin1234` | Admin — Team, timesheets, schedules, exports, passcodes |
+| `demo` | `demo1234` | Staff — Clock, My timesheet, leave and schedule requests |
+
+Be clear-eyed about what this is: demo sign-in is convenience, not security.
+The passcodes and the data sit in the browser, readable by anyone with the
+device. The app says so on screen ("Demo mode — no server connected"). Real
+rosters belong on the Netlify backend, where the same rules are enforced
+server-side and the data is shared across devices — demo data never leaves
+its browser.
 
 ## Deploying
 

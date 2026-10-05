@@ -113,6 +113,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
   </div>
 </footer>
 
+<script src="demo.js"></script>
 <script>
 // Live US Eastern clock in the nav, ticking every second.
 (function () {
@@ -210,12 +211,11 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       var wait = reduce ? 0 : Math.max(0, 700 - (Date.now() - t0));
       setTimeout(function () { location.href = 'app.html'; }, wait);
     }
-    api('GET', '/status').then(function (s) {
-      if (!s || s.needsSetup) { handoff(u, p); return null; }
-      return api('GET', '/salt?u=' + encodeURIComponent(u)).then(function (r) {
+    function signInWith(call) {
+      return call('GET', '/salt?u=' + encodeURIComponent(u)).then(function (r) {
         return hashPin(p, r.salt);
       }).then(function (h) {
-        return api('POST', '/login', { username: u, hash: h });
+        return call('POST', '/login', { username: u, hash: h });
       }).then(function (res) {
         if (!res || !res.token || !res.userId) throw new Error('The server answered, but without a session. Try again.');
         try {
@@ -224,10 +224,20 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         } catch (ex) {}
         done();
       });
+    }
+    function hasDemo() { return typeof Demo !== "undefined" && Demo && typeof Demo.call === "function"; }
+    api('GET', '/status').then(function (s) {
+      if (!s || s.needsSetup) { handoff(u, p); return null; }
+      return signInWith(api);
     }).catch(function (err) {
-      // No backend here: carry the credentials over and let the app explain.
-      if (err && (err.status === 0 || err.status === 404)) { handoff(u, p); return; }
-      fail((err && err.message) || "Can't reach the server.");
+      if (!(err && (err.status === 0 || err.status === 404))) { fail((err && err.message) || "Can't reach the server."); return; }
+      /* No backend on this host: sign in against the demo backend instead, so
+         the door opens here rather than on an error page. */
+      if (!hasDemo()) { handoff(u, p); return; }
+      Demo.call('GET', '/status', undefined, null).then(function (s) {
+        if (!s || s.needsSetup) { handoff(u, p); return null; }
+        return signInWith(Demo.call.bind(Demo));
+      }).catch(function (e2) { fail((e2 && e2.message) || "Can't reach the server."); });
     });
   });
 })();

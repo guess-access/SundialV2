@@ -364,6 +364,13 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 }
 .theme-toggle:hover{color:var(--paper);border-color:var(--btn-hover-line)}
 .theme-toggle i{width:9px;height:9px;border-radius:50%;background:var(--signal);flex:none}
+/* demo mode (no backend): a slim banner, plus the demo accounts on the sign-in */
+.demobar{
+  margin:0 0 14px;padding:9px 16px;border-radius:999px;text-align:center;
+  font-size:.85rem;color:var(--amber);background:var(--amber-fill);border:1px solid var(--amber-line);
+}
+.demo-hint{margin:14px 0 0;text-align:center;font-size:.85rem;color:var(--muted)}
+.demo-hint b{color:var(--paper);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 
 /* ---------- phones & tablets: single column, scrollable tables, no zoom jump ---------- */
@@ -399,6 +406,8 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
 <body>
 <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
 <div class="wrap">
+
+  <div class="demobar hidden" id="demoBar" role="status">Demo mode — no server connected. Everything here is stored in this browser.</div>
 
   <!-- ============ BIG TITLE ============ -->
   <header class="brand">
@@ -436,6 +445,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <input type="password" id="inPin2" maxlength="32">
         </label>
         <button class="btn btn-in" type="submit" id="authGo">Sign in</button>
+        <p class="demo-hint hidden" id="demoHint">Demo accounts — admin view: <b>admin / admin1234</b> · user view: <b>demo / demo1234</b></p>
       </form>
       <p class="switcher" id="authSwitch"></p>
     </div>
@@ -621,6 +631,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
   </form>
 </dialog>
 
+<script src="demo.js"></script>
 <script>
 (function(){
 "use strict";
@@ -669,6 +680,8 @@ function replaceState(res){
 }
 
 function api(method, path, body){
+  /* No backend on this host: the demo backend in demo.js answers instead. */
+  if(typeof Demo !== "undefined" && Demo.active) return Demo.call(method, path, body, auth ? auth.token : null);
   var opts = { method:method, headers:{}, cache:"no-store" };
   if(auth) opts.headers.Authorization = "Bearer " + auth.token;
   if(body !== undefined){ opts.headers["Content-Type"] = "application/json"; opts.body = J(body); }
@@ -819,6 +832,22 @@ function boot(){
     if(auth) return pullNow().catch(function(err){ if(err.status === 401) onApiError(err); else throw err; });
     if(meta.needsSetup) return tryMigrate();
   }).then(function(){ render(); }, function(err){
+    if((err.status === 404 || err.status === 0) && typeof Demo !== "undefined"){
+      /* Nothing serves /api on this host, so run the demo backend in this
+         browser instead of retrying a URL that will never answer. This sticks
+         for the visit; a reload re-probes, so a newly deployed backend wins
+         as soon as it exists. */
+      Demo.active = true;
+      meta.ready = true; meta.offline = false; meta.demo = true;
+      api("GET", "/status").then(function(s){
+        meta.needsSetup = !!s.needsSetup; meta.signup = s.signup !== false;
+        if(auth) return pullNow().catch(function(e2){ if(e2.status === 401) onApiError(e2); else throw e2; });
+        if(meta.needsSetup) return tryMigrate();
+      }).then(function(){ render(); }, function(e2){
+        meta.offline = true; meta.reason = describeFailure(e2); render();
+      });
+      return;
+    }
     meta.offline = true; meta.reason = describeFailure(err); render();
     setTimeout(boot, 5000);
   });
@@ -1494,6 +1523,8 @@ function render(){
   var u = currentUser();
   show($("auth"), !u);
   show($("app"), !!u);
+  show($("demoBar"), !!meta.demo);
+  show($("demoHint"), !!meta.demo && !u);
   if(!u){ paintAuth(); tick(); return; }
 
   $("whoName").textContent = u.name;
