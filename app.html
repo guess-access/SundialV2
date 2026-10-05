@@ -686,6 +686,11 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <div class="panel block" id="empAddWrap" style="margin-bottom:16px">
         <div class="emp-label"><span>Add a new user</span><span>Admin only</span></div>
         <p class="note" style="margin:0 0 14px">Only an admin adds people. The new user signs in with the username and passcode below.</p>
+        <div class="dlg-actions" style="justify-content:flex-start;margin:0 0 6px">
+          <button class="btn" id="empImport" type="button">Import from EE-DATA</button>
+        </div>
+        <p class="note hidden" id="empImportNote"></p>
+        <p class="err hidden" id="empImportErr"></p>
         <label class="field"><span>Username</span>
           <input type="text" id="empAddUser" maxlength="20" autocapitalize="none" spellcheck="false" autocomplete="off">
         </label>
@@ -2700,6 +2705,103 @@ $("empAdd").addEventListener("click", function(){
       toast(ok ? composed + " can now sign in." : "Not saved yet — " + composed + " isn't on the server. Keep this tab open (it retries by itself).");
     });
   });
+});
+
+/* ---------------- import EE-DATA ----------------
+   Pulls the employee sheet (link-shared Google Sheet, EE-DATA tab) straight
+   into the roster. Usernames come from Employee ID, passcodes start at
+   IMPORT_PIN for the admin to reset on the Team tab, and anyone already here
+   is skipped so re-pulls are safe. The sheet's own "Date of Birth" column
+   holds phone numbers (shifted data), so birthdays come from "Brithday". */
+var SHEET_CSV = "https://docs.google.com/spreadsheets/d/1p4F391XCf2rf1POqC9Kd_2tvPnv7u6zahOKC5dI3MGc/gviz/tq?tqx=out:csv&sheet=EE-DATA";
+var IMPORT_PIN = "welcome1234";
+function parseCSV(text){
+  var rows = [], row = [], cur = "", q = false;
+  for(var i = 0; i < text.length; i++){
+    var c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i + 1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if(c === '"'){ q = true; }
+    else if(c === ","){ row.push(cur); cur = ""; }
+    else if(c === "\n"){ row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if(c === "\r"){ /* skip */ }
+    else cur += c;
+  }
+  if(cur !== "" || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(function(r){ return r.length > 1 || (r.length === 1 && r[0].trim() !== ""); });
+}
+function isoFromMDY(s){
+  var m = String(s || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return "";
+  var mm = +m[1], dd = +m[2], yy = +m[3];
+  var dt = new Date(yy, mm - 1, dd);
+  if(dt.getFullYear() !== yy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return "";
+  return yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+}
+$("empImport").addEventListener("click", function(){
+  var u = currentUser(); if(!u || u.role !== "admin") return;
+  var note = $("empImportNote"), err = $("empImportErr"), btn = $("empImport");
+  var imported = 0, skipped = 0;
+  note.classList.remove("hidden"); err.classList.add("hidden");
+  note.textContent = "Pulling EE-DATA…";
+  btn.disabled = true;
+  function done(msg, isErr){
+    btn.disabled = false;
+    if(isErr){ err.textContent = msg; err.classList.remove("hidden"); note.classList.add("hidden"); }
+    else note.textContent = msg;
+  }
+  fetch(SHEET_CSV, { cache: "no-store" }).then(function(r){
+    if(!r.ok) throw new Error("The sheet didn't answer (HTTP " + r.status + "). It must stay shared to anyone with the link.");
+    return r.text();
+  }).then(function(text){
+    var rows = parseCSV(text);
+    if(rows.length < 2) throw new Error("EE-DATA came back empty.");
+    var head = rows[0].map(function(h){ return String(h).trim(); });
+    function col(name){ return head.indexOf(name); }
+    var ci = {
+      id: col("Employee ID"), first: col("First Name"), mid: col("Middle Intial"),
+      last: col("Last Name"), birth: col("Brithday"), addr: col("Address"),
+      mobile: col("Mobile Number"), role: col("Job Role"), start: col("Start Date"),
+      end: col("End Date"), status: col("Employee Status")
+    };
+    if(ci.id < 0 || ci.first < 0 || ci.last < 0) {
+      throw new Error("EE-DATA doesn't have the expected columns (Employee ID, First Name, Last Name).");
+    }
+    var needAdmin = !state.users.some(function(x){ return x.role === "admin" && x.active !== false; });
+    var adminQueued = false, jobs = [];
+    rows.slice(1).forEach(function(f){
+      var uname = String(f[ci.id] || "").trim().toLowerCase();
+      var composed = composedName(f[ci.first], f[ci.mid], f[ci.last], "");
+      if(!validUsername(uname) || !composed || state.users.some(function(x){ return x.username === uname; })){ skipped++; return; }
+      var makeAdmin = needAdmin && !adminQueued;
+      if(makeAdmin) adminQueued = true;
+      var salt = randSalt();
+      jobs.push(hashPin(IMPORT_PIN, salt).then(function(h){
+        return { id: nextId("u"), username: uname, name: composed, salt: salt, hash: h,
+          role: makeAdmin ? "admin" : "staff",
+          createdAt: new Date().toISOString(),
+          active: !String(f[ci.end] || "").trim(),
+          sched: null,
+          firstName: String(f[ci.first] || "").trim(), middleName: String(f[ci.mid] || "").trim(),
+          lastName: String(f[ci.last] || "").trim(), birthdate: isoFromMDY(f[ci.birth]),
+          photo: "", phone: String(f[ci.mobile] || "").trim(),
+          address: String(f[ci.addr] || "").trim(), emergency: "",
+          position: String(f[ci.role] || "").trim(), hired: isoFromMDY(f[ci.start]),
+          employmentStatus: String(f[ci.status] || "").trim(), notes: "" };
+      }));
+    });
+    if(!jobs.length && !skipped) throw new Error("No people rows found on EE-DATA.");
+    return Promise.all(jobs).then(function(made){
+      made.forEach(function(nu){ state.users.push(nu); imported++; });
+    });
+  }).then(function(){
+    renderEmployees();
+    return save();
+  }).then(function(ok){
+    done(ok ? "Imported " + imported + ", skipped " + skipped + " already here."
+            : "Pulled " + imported + ", but the save hasn't confirmed — keep this tab open.", !ok);
+  }).catch(function(e){ done((e && e.message) || "The import failed.", true); });
 });
 
 /* ---------------- generic action dialog ---------------- */

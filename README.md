@@ -223,6 +223,16 @@ server compares against what is on file, so sending a whole record back never
 smuggles a promotion, and adding accounts stays admin-only. Photos upload
 from the device and shrink to a 256px JPEG before saving.
 
+Admins can also pull a whole roster at once: **Import from EE-DATA** (My Info,
+beside the add-user form) reads the link-shared Google Sheet tab of that name
+and creates everyone missing. Usernames come from Employee ID, birthdays from
+the Brithday column, phones from Mobile Number, positions from Job Role, hire
+dates from Start Date, statuses from Employee Status, and a present End Date
+switches the account off; passcodes start at `welcome1234` for the admin to
+reset on the Team tab. Re-pulls skip whoever is already here, so running it
+twice changes nothing. (The sheet's own Date of Birth column holds phone
+numbers, not dates, so the import ignores it — worth cleaning at the source.)
+
 ## Demo mode (no backend)
 
 On plain static hosting (GitHub Pages) there are no functions behind `/api/*`,
