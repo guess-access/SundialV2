@@ -229,9 +229,12 @@ and creates everyone missing. Usernames come from Employee ID, birthdays from
 the Brithday column, phones from Mobile Number, positions from Job Role, hire
 dates from Start Date, statuses from Employee Status, and a present End Date
 switches the account off; passcodes start at `welcome1234` for the admin to
-reset on the Team tab. Re-pulls skip whoever is already here, so running it
-twice changes nothing. (The sheet's own Date of Birth column holds phone
-numbers, not dates, so the import ignores it — worth cleaning at the source.)
+reset on the Team tab. An optional **Username** column wins over Employee ID
+(empty or invalid falls back to it), and an optional **Password** (or
+Passcode) column of 4+ characters sets the starting passcode instead. Re-pulls
+skip whoever is already here, so running it twice changes nothing. (The
+sheet's own Date of Birth column holds phone numbers, not dates, so the
+import ignores it — worth cleaning at the source.)
 
 ## Demo mode (no backend)
 

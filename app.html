@@ -2742,7 +2742,7 @@ function isoFromMDY(s){
 $("empImport").addEventListener("click", function(){
   var u = currentUser(); if(!u || u.role !== "admin") return;
   var note = $("empImportNote"), err = $("empImportErr"), btn = $("empImport");
-  var imported = 0, skipped = 0;
+  var imported = 0, skipped = 0, sheetCreds = 0, skippedNames = [];
   note.classList.remove("hidden"); err.classList.add("hidden");
   note.textContent = "Pulling EE-DATA…";
   btn.disabled = true;
@@ -2763,7 +2763,8 @@ $("empImport").addEventListener("click", function(){
       id: col("Employee ID"), first: col("First Name"), mid: col("Middle Intial"),
       last: col("Last Name"), birth: col("Brithday"), addr: col("Address"),
       mobile: col("Mobile Number"), role: col("Job Role"), start: col("Start Date"),
-      end: col("End Date"), status: col("Employee Status")
+      end: col("End Date"), status: col("Employee Status"),
+      user: col("Username"), pass: col("Password") >= 0 ? col("Password") : col("Passcode")
     };
     if(ci.id < 0 || ci.first < 0 || ci.last < 0) {
       throw new Error("EE-DATA doesn't have the expected columns (Employee ID, First Name, Last Name).");
@@ -2771,13 +2772,25 @@ $("empImport").addEventListener("click", function(){
     var needAdmin = !state.users.some(function(x){ return x.role === "admin" && x.active !== false; });
     var adminQueued = false, jobs = [];
     rows.slice(1).forEach(function(f){
-      var uname = String(f[ci.id] || "").trim().toLowerCase();
+      /* Credentials may ride on the sheet itself: a Username column wins, but
+         an empty or invalid one falls back to Employee ID; same for
+         Password/Passcode, falling back to the starting passcode. */
+      var uname = ci.user >= 0 ? String(f[ci.user] || "").trim().toLowerCase() : "";
+      if(!validUsername(uname)) uname = String(f[ci.id] || "").trim().toLowerCase();
+      var pin = ci.pass >= 0 ? String(f[ci.pass] || "") : "";
+      var fromSheet = pin.length >= 4;
+      if(!fromSheet) pin = IMPORT_PIN;
       var composed = composedName(f[ci.first], f[ci.mid], f[ci.last], "");
-      if(!validUsername(uname) || !composed || state.users.some(function(x){ return x.username === uname; })){ skipped++; return; }
+      if(!validUsername(uname) || composed.length < 2 || state.users.some(function(x){ return x.username === uname; })){
+        skipped++;
+        if(skippedNames.length < 6) skippedNames.push(uname || "?");
+        return;
+      }
+      if(fromSheet) sheetCreds++;
       var makeAdmin = needAdmin && !adminQueued;
       if(makeAdmin) adminQueued = true;
       var salt = randSalt();
-      jobs.push(hashPin(IMPORT_PIN, salt).then(function(h){
+      jobs.push(hashPin(pin, salt).then(function(h){
         return { id: nextId("u"), username: uname, name: composed, salt: salt, hash: h,
           role: makeAdmin ? "admin" : "staff",
           createdAt: new Date().toISOString(),
@@ -2799,7 +2812,7 @@ $("empImport").addEventListener("click", function(){
     renderEmployees();
     return save();
   }).then(function(ok){
-    done(ok ? "Imported " + imported + ", skipped " + skipped + " already here."
+    done(ok ? "Imported " + imported + (sheetCreds ? " (" + sheetCreds + " with sheet passcodes)" : "") + ", skipped " + skipped + (skippedNames.length ? " (" + skippedNames.join(", ") + ")" : "") + "."
             : "Pulled " + imported + ", but the save hasn't confirmed — keep this tab open.", !ok);
   }).catch(function(e){ done((e && e.message) || "The import failed.", true); });
 });
