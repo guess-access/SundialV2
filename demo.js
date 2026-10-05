@@ -169,7 +169,8 @@ var Demo = (function () {
          Position and hire date stay admin-only, as do username, role, active
          state, passcode and schedule. */
       if (!isAdmin) {
-        var SELF_INFO = ["name", "phone", "address", "emergency", "notes"];
+        var SELF_INFO = ["name", "firstName", "middleName", "lastName", "birthdate", "photo",
+          "phone", "address", "emergency", "notes"];
         if (!existing || item.id !== self.id || existing.id !== self.id) {
           deny(403, "You can only change your own information.");
         }

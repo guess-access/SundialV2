@@ -214,12 +214,14 @@ and file requests; the server refuses a staff passcode change, a rewrite of an a
 recorded shift, a deleted shift, a change to somebody else's record, and approving their own
 request — and nobody can switch off the last admin.
 
-The one exception is employee information: people may update their **own** name, phone,
-address, emergency contact and notes (the My Info tab, dressed in the about page's
-section style). Position and hire date stay
-admin-only, as do username, role, active state, passcode and schedule — the server
-compares against what's on file, so sending a whole record back never smuggles a
-promotion, and adding accounts stays admin-only.
+The one exception is employee information: people may update their **own** profile
+name (first, middle, last), birthday, photo, phone, address, emergency contact
+and notes, all from the My Info tab. Age and tenure compute themselves from the
+birthday and hire date. Position, hire date and employment status stay
+admin-only, as do username, role, active state, passcode and schedule — the
+server compares against what is on file, so sending a whole record back never
+smuggles a promotion, and adding accounts stays admin-only. Photos upload
+from the device and shrink to a 256px JPEG before saving.
 
 ## Demo mode (no backend)
 

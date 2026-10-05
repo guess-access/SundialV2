@@ -404,6 +404,13 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
   text-transform:uppercase;color:var(--muted);
 }
 .emp-label span:last-child{color:var(--signal)}
+.emp-photo-row{display:flex;align-items:center;gap:14px}
+.emp-photo{width:72px;height:72px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
+.emp-photo--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:1.4rem;color:var(--muted)}
+#empPhoto,#empAddPhoto{color:var(--muted);font-size:.88rem;max-width:100%}
+.emp-computed{display:block;margin-top:5px;font-size:.82rem;color:var(--muted)}
+.emp-ava{width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:-9px;margin-right:9px;background:var(--panel-2);border:1px solid var(--line-soft)}
+.emp-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:.8rem;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 
 /* ---------- phones & tablets: single column, scrollable tables, no zoom jump ---------- */
@@ -628,8 +635,25 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <label class="field"><span>Username (sign-in name, never changes)</span>
           <input type="text" id="empUser" disabled>
         </label>
-        <label class="field"><span>Full name</span>
-          <input type="text" id="empName" maxlength="60" autocomplete="off">
+        <div class="field"><span>Profile photo</span>
+          <span class="emp-photo-row">
+            <img class="emp-photo" id="empPhotoPrev" alt="Profile photo preview">
+            <span class="emp-photo emp-photo--init" id="empPhotoInit">?</span>
+            <input type="file" id="empPhoto" accept="image/*">
+          </span>
+        </div>
+        <label class="field"><span>First name</span>
+          <input type="text" id="empFirst" maxlength="40" autocomplete="off">
+        </label>
+        <label class="field"><span>Middle name</span>
+          <input type="text" id="empMid" maxlength="40" autocomplete="off">
+        </label>
+        <label class="field"><span>Last name</span>
+          <input type="text" id="empLast" maxlength="40" autocomplete="off">
+        </label>
+        <label class="field"><span>Birthday</span>
+          <input type="date" id="empBirth">
+          <span class="emp-computed" id="empAge"></span>
         </label>
         <label class="field"><span>Phone</span>
           <input type="tel" id="empPhone" maxlength="30" autocomplete="off">
@@ -645,6 +669,10 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         </label>
         <label class="field"><span>Hire date</span>
           <input type="date" id="empHired">
+          <span class="emp-computed" id="empTenure"></span>
+        </label>
+        <label class="field"><span>Employment status</span>
+          <input type="text" id="empStatus" maxlength="40" autocomplete="off" placeholder="e.g. Regular">
         </label>
         <label class="field"><span>Notes</span>
           <textarea id="empNotes" rows="2" maxlength="500"></textarea>
@@ -661,14 +689,31 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <label class="field"><span>Username</span>
           <input type="text" id="empAddUser" maxlength="20" autocapitalize="none" spellcheck="false" autocomplete="off">
         </label>
-        <label class="field"><span>Full name</span>
-          <input type="text" id="empAddName" maxlength="60" autocomplete="off">
+        <label class="field"><span>First name</span>
+          <input type="text" id="empAddFirst" maxlength="40" autocomplete="off">
+        </label>
+        <label class="field"><span>Middle name</span>
+          <input type="text" id="empAddMid" maxlength="40" autocomplete="off">
+        </label>
+        <label class="field"><span>Last name</span>
+          <input type="text" id="empAddLast" maxlength="40" autocomplete="off">
         </label>
         <label class="field"><span>Starting passcode</span>
           <input type="password" id="empAddPin" maxlength="32" autocomplete="new-password">
         </label>
         <label class="field"><span>Repeat passcode</span>
           <input type="password" id="empAddPin2" maxlength="32" autocomplete="new-password">
+        </label>
+        <div class="field"><span>Profile photo</span>
+          <span class="emp-photo-row">
+            <img class="emp-photo" id="empAddPhotoPrev" alt="Profile photo preview">
+            <span class="emp-photo emp-photo--init" id="empAddPhotoInit">?</span>
+            <input type="file" id="empAddPhoto" accept="image/*">
+          </span>
+        </div>
+        <label class="field"><span>Birthday</span>
+          <input type="date" id="empAddBirth">
+          <span class="emp-computed" id="empAddAge"></span>
         </label>
         <label class="field"><span>Phone</span>
           <input type="tel" id="empAddPhone" maxlength="30" autocomplete="off">
@@ -684,6 +729,10 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         </label>
         <label class="field"><span>Hire date</span>
           <input type="date" id="empAddHired">
+          <span class="emp-computed" id="empAddTenure"></span>
+        </label>
+        <label class="field"><span>Employment status</span>
+          <input type="text" id="empAddStatus" maxlength="40" autocomplete="off" placeholder="e.g. Regular">
         </label>
         <label class="field"><span>Notes</span>
           <textarea id="empAddNotes" rows="2" maxlength="500"></textarea>
@@ -946,7 +995,8 @@ var Demo = (function () {
          Position and hire date stay admin-only, as do username, role, active
          state, passcode and schedule. */
       if (!isAdmin) {
-        var SELF_INFO = ["name", "phone", "address", "emergency", "notes"];
+        var SELF_INFO = ["name", "firstName", "middleName", "lastName", "birthdate", "photo",
+          "phone", "address", "emergency", "notes"];
         if (!existing || item.id !== self.id || existing.id !== self.id) {
           deny(403, "You can only change your own information.");
         }
@@ -2423,10 +2473,104 @@ function renderTeam(){
    stay on the Team tab); staff see only their own card, and position and hire
    date arrive read-only. The form never refills mid-typing: background syncs
    rebuild the roster, but typed text is left alone until saved. */
-var empSel = null, empDirty = false;
-["empName","empPhone","empAddr","empEmg","empPos","empHired","empNotes"].forEach(function(id){
-  $(id).addEventListener("input", function(){ empDirty = true; });
+var empSel = null, empDirty = false, empPhotoData = null, empAddPhotoData = null;
+["empFirst","empMid","empLast","empBirth","empStatus","empPhone","empAddr","empEmg","empPos","empHired","empNotes"].forEach(function(id){
+  $(id).addEventListener("input", function(){ empDirty = true; paintEmpComputed(); });
 });
+["empAddBirth","empAddHired"].forEach(function(id){
+  $(id).addEventListener("input", paintEmpComputed);
+});
+/* The display name is always composed from the three parts, so rosters,
+   timesheets and exports never drift from the profile. Legacy records
+   without parts keep the name they already have. */
+function composedName(f, m, l, fallback){
+  var s = [f, m, l].map(function(x){ return String(x || "").trim(); }).filter(function(x){ return x; }).join(" ");
+  return s || fallback || "";
+}
+function parseISODate(iso){
+  var p = String(iso || "").split("-");
+  if(p.length < 3) return null;
+  var y = +p[0], m = +p[1], d = +p[2];
+  if(!(y > 1900 && y < 2100) || !(m >= 1 && m <= 12) || !(d >= 1 && d <= 31)) return null;
+  var dt = new Date(y, m - 1, d);
+  if(dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return dt;
+}
+function calcAge(iso){
+  var b = parseISODate(iso); if(!b) return null;
+  var now = new Date(), age = now.getFullYear() - b.getFullYear();
+  if(now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+  if(age < 0 || age > 130) return null;
+  return age;
+}
+function tenure(iso){
+  var h = parseISODate(iso); if(!h) return "";
+  var now = new Date();
+  if(h > now) return "";
+  var months = (now.getFullYear() - h.getFullYear()) * 12 + (now.getMonth() - h.getMonth());
+  if(now.getDate() < h.getDate()) months--;
+  if(months < 0) return "";
+  var y = Math.floor(months / 12), m = months % 12, s = "";
+  if(y > 0){ s = y + (y === 1 ? " yr" : " yrs"); if(m) s += " " + m + (m === 1 ? " mo" : " mos"); return s; }
+  if(months > 0) return months + (months === 1 ? " mo" : " mos");
+  var days = Math.floor((now - h) / 86400000);
+  return days <= 0 ? "Started today" : days + (days === 1 ? " day" : " days");
+}
+function paintEmpComputed(){
+  var a = calcAge($("empBirth").value);
+  $("empAge").textContent = a === null ? "" : a + (a === 1 ? " year old" : " years old");
+  $("empTenure").textContent = tenure($("empHired").value);
+  var aa = calcAge($("empAddBirth").value);
+  $("empAddAge").textContent = aa === null ? "" : aa + (aa === 1 ? " year old" : " years old");
+  $("empAddTenure").textContent = tenure($("empAddHired").value);
+}
+function showPhoto(prevId, initId, dataUrl, fallbackName){
+  var prev = $(prevId), init = $(initId);
+  if(dataUrl){
+    prev.src = dataUrl; prev.style.display = ""; init.style.display = "none";
+  } else {
+    prev.removeAttribute("src"); prev.style.display = "none"; init.style.display = "";
+    init.textContent = String(fallbackName || "?").trim().charAt(0).toUpperCase() || "?";
+  }
+}
+function wirePhoto(inputId, errId, set){
+  $(inputId).addEventListener("change", function(){
+    var f = this.files && this.files[0]; if(!f) return;
+    var err = $(errId);
+    if(!/^image\//.test(f.type)){ err.textContent = "Choose an image file for the photo."; return; }
+    if(f.size > 8 * 1024 * 1024){ err.textContent = "That photo is too big — pick one under 8 MB."; return; }
+    err.textContent = "";
+    var rd = new FileReader();
+    rd.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        /* shrink to a 256px JPEG so one photo never crowds the timesheet */
+        var scale = Math.min(1, 256 / Math.max(img.width, img.height));
+        var cv = document.createElement("canvas");
+        cv.width = Math.max(1, Math.round(img.width * scale));
+        cv.height = Math.max(1, Math.round(img.height * scale));
+        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+        set(cv.toDataURL("image/jpeg", .82));
+      };
+      img.onerror = function(){ err.textContent = "That file didn't read as a photo."; };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+}
+wirePhoto("empPhoto", "empErr", function(d){
+  empPhotoData = d; empDirty = true;
+  showPhoto("empPhotoPrev", "empPhotoInit", d, $("empFirst").value + " " + $("empLast").value);
+});
+wirePhoto("empAddPhoto", "empAddErr", function(d){
+  empAddPhotoData = d;
+  showPhoto("empAddPhotoPrev", "empAddPhotoInit", d, "?");
+});
+function empAvatar(x){
+  if(x.photo) return '<img class="emp-ava" src="' + esc(x.photo) + '" alt="">';
+  var initial = esc(String(x.name || "?").trim().charAt(0).toUpperCase() || "?");
+  return '<span class="emp-ava emp-ava--init">' + initial + '</span>';
+}
 function empTarget(){
   var u = currentUser(); if(!u) return null;
   if(u.role !== "admin") return u;
@@ -2441,7 +2585,7 @@ function renderEmployees(){
     var body = $("empBody"); body.innerHTML = "";
     state.users.forEach(function(x){
       var tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + esc(x.name) + (x.active === false ? ' <span class="muted">· off</span>' : "") + "</td><td>@" + esc(x.username) + "</td>" +
+      tr.innerHTML = "<td>" + empAvatar(x) + esc(x.name) + (x.active === false ? ' <span class="muted">· off</span>' : "") + "</td><td>@" + esc(x.username) + "</td>" +
         "<td>" + esc(x.position || "—") + "</td><td>" + esc(x.phone || "—") + "</td>" +
         '<td style="text-align:right;white-space:nowrap"><button class="btn btn-quiet" data-emp="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Edit</button></td>';
       body.appendChild(tr);
@@ -2461,16 +2605,24 @@ function renderEmployees(){
     : "Your position and hire date are kept by your admin.";
   if(!empDirty){
     $("empUser").value = t.username;
-    $("empName").value = t.name || "";
+    $("empFirst").value = t.firstName || "";
+    $("empMid").value = t.middleName || "";
+    $("empLast").value = t.lastName || "";
+    $("empBirth").value = t.birthdate || "";
     $("empPhone").value = t.phone || "";
     $("empAddr").value = t.address || "";
     $("empEmg").value = t.emergency || "";
     $("empPos").value = t.position || "";
     $("empHired").value = t.hired || "";
+    $("empStatus").value = t.employmentStatus || "";
     $("empNotes").value = t.notes || "";
+    empPhotoData = null;
+    paintEmpComputed();
   }
+  showPhoto("empPhotoPrev", "empPhotoInit", empPhotoData || t.photo, t.name);
   $("empPos").disabled = !isAdmin;
   $("empHired").disabled = !isAdmin;
+  $("empStatus").disabled = !isAdmin;
   $("empErr").textContent = "";
 }
 $("empBody").addEventListener("click", function(ev){
@@ -2487,9 +2639,18 @@ $("empSave").addEventListener("click", function(){
   var err = $("empErr");
   var rec = state.users.filter(function(x){ return x.id === t.id; })[0];
   if(!rec){ err.textContent = "That person is gone — pick someone else."; return; }
-  var name = $("empName").value.trim();
-  if(name.length < 2){ err.textContent = "Enter the name that should appear on the timesheet."; return; }
-  rec.name = name;
+  var composed = composedName($("empFirst").value, $("empMid").value, $("empLast").value, "");
+  if(composed){
+    if(composed.length < 2){ err.textContent = "Enter the name that should appear on the timesheet."; return; }
+    rec.name = composed;
+  } else if(!rec.name || rec.name.trim().length < 2){
+    err.textContent = "Enter the name that should appear on the timesheet."; return;
+  }
+  rec.firstName = $("empFirst").value.trim();
+  rec.middleName = $("empMid").value.trim();
+  rec.lastName = $("empLast").value.trim();
+  rec.birthdate = $("empBirth").value;
+  if(empPhotoData) rec.photo = empPhotoData;
   rec.phone = $("empPhone").value.trim();
   rec.address = $("empAddr").value.trim();
   rec.emergency = $("empEmg").value.trim();
@@ -2497,6 +2658,7 @@ $("empSave").addEventListener("click", function(){
   if(isAdmin){
     rec.position = $("empPos").value.trim();
     rec.hired = $("empHired").value;
+    rec.employmentStatus = $("empStatus").value.trim();
   }
   err.textContent = "";
   empDirty = false;
@@ -2509,26 +2671,33 @@ $("empAdd").addEventListener("click", function(){
   var u = currentUser(); if(!u || u.role !== "admin") return;
   var err = $("empAddErr");
   var uname = $("empAddUser").value.trim().toLowerCase();
-  var name = $("empAddName").value.trim();
+  var composed = composedName($("empAddFirst").value, $("empAddMid").value, $("empAddLast").value, "");
   var pin = $("empAddPin").value, pin2 = $("empAddPin2").value;
   if(!validUsername(uname)){ err.textContent = "Usernames are 3-20 characters: letters, numbers, dot, dash or underscore."; return; }
   if(state.users.some(function(x){ return x.username === uname; })){ err.textContent = "That username is taken."; return; }
-  if(name.length < 2){ err.textContent = "Enter the name that should appear on the timesheet."; return; }
+  if(composed.length < 2){ err.textContent = "Enter the name that should appear on the timesheet."; return; }
   if(pin.length < 4){ err.textContent = "The passcode needs at least 4 characters."; return; }
   if(pin !== pin2){ err.textContent = "The two passcodes don't match."; return; }
   var salt = randSalt();
   hashPin(pin, salt).then(function(h){
-    var nu = { id: nextId("u"), username: uname, name: name, salt: salt, hash: h,
+    var nu = { id: nextId("u"), username: uname, name: composed, salt: salt, hash: h,
       role: "staff", createdAt: new Date().toISOString(), active: true, sched: null,
+      firstName: $("empAddFirst").value.trim(), middleName: $("empAddMid").value.trim(),
+      lastName: $("empAddLast").value.trim(), birthdate: $("empAddBirth").value,
+      photo: empAddPhotoData || "",
       phone: $("empAddPhone").value.trim(), address: $("empAddAddr").value.trim(),
       emergency: $("empAddEmg").value.trim(), position: $("empAddPos").value.trim(),
-      hired: $("empAddHired").value, notes: $("empAddNotes").value.trim() };
+      hired: $("empAddHired").value, employmentStatus: $("empAddStatus").value.trim(),
+      notes: $("empAddNotes").value.trim() };
     state.users.push(nu);
-    ["empAddUser","empAddName","empAddPin","empAddPin2","empAddPhone","empAddAddr","empAddEmg","empAddPos","empAddHired","empAddNotes"].forEach(function(id){ $(id).value = ""; });
+    ["empAddUser","empAddFirst","empAddMid","empAddLast","empAddPin","empAddPin2","empAddBirth","empAddPhone","empAddAddr","empAddEmg","empAddPos","empAddHired","empAddStatus","empAddNotes"].forEach(function(id){ $(id).value = ""; });
+    empAddPhotoData = null;
+    showPhoto("empAddPhotoPrev", "empAddPhotoInit", "", "?");
+    paintEmpComputed();
     err.textContent = "";
     renderEmployees();
     return save().then(function(ok){
-      toast(ok ? name + " can now sign in." : "Not saved yet — " + name + " isn't on the server. Keep this tab open (it retries by itself).");
+      toast(ok ? composed + " can now sign in." : "Not saved yet — " + composed + " isn't on the server. Keep this tab open (it retries by itself).");
     });
   });
 });
