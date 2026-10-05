@@ -10,7 +10,7 @@
 <meta name="description" content="Prestige Dealer Alliance Timelogs — clock in and out, weekly timesheets, schedules and shift approvals, all in US Eastern time.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   color-scheme: dark;
@@ -20,18 +20,18 @@
      Dark pairing rule: fills stay deep, the ink on them goes pale, and the
      semantic colours (signal, amber, lunch, alert) are the lightened siblings
      of their white-theme selves so they hold contrast on a deep panel. */
-  --field:#0E1620;
-  --panel:#16212D;
-  --panel-2:#1E2B39;
-  --line:#3A4E62;
-  --line-soft:#263444;
-  --paper:#E4ECF3;
-  --muted:#93A2B1;
-  --signal:#3ECF9A;
-  --signal-ink:#06281D;
-  --signal-fill:#0F2A22;
-  --signal-line:#1F6B52;
-  --signal-hover:#57DCAC;
+  --field:#0b1118;
+  --panel:#121c27;
+  --panel-2:#1d3448;
+  --line:#223044;
+  --line-soft:#223044;
+  --paper:#e9f0f6;
+  --muted:#93a5b5;
+  --signal:#00bfa6;
+  --signal-ink:#08161f;
+  --signal-fill:#0d2b28;
+  --signal-line:#1c5349;
+  --signal-hover:#4fd8c4;
   --amber:#F0B457;
   --amber-ink:#2C1D06;
   --amber-fill:#2E2314;
@@ -52,17 +52,18 @@
   --brand-navy:#7FB6E4;
   --brand-gradient:linear-gradient(180deg,#8CC4EC 0%,#5FBEEA 52%,#4BD6A8 100%);
   /* one-off surfaces that used to be spelled out as hex in the rules below */
-  --field-input:#111B25;
-  --btn-hover:#26343F;
+  --field-input:#0f1721;
+  --btn-hover:#2c4b67;
   --btn-hover-line:#55697C;
-  --placeholder:#7A8896;
+  --placeholder:#93a5b5;
   --code-bg:#0F1A24;
-  --inset:#131E29;
+  --inset:#121c27;
   --scrim:rgba(4,8,12,.62);
-  --shadow:0 8px 24px rgba(0,0,0,.45);
-  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --r:10px;
+  --shadow:0 24px 60px -28px rgba(0,0,0,.75);
+  --sans:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display:"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:20px;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
@@ -73,18 +74,18 @@
   color-scheme: light;
   /* White page, white panels, dark ink: every colour below is checked to stay
      legible on white, and anything used as a fill takes white text on top. */
-  --field:#F2F5F8;
+  --field:#f3f8f7;
   --panel:#FFFFFF;
-  --panel-2:#EDF1F5;
-  --line:#C7D1DB;
-  --line-soft:#E4EAF0;
-  --paper:#15202B;
-  --muted:#5B6673;
-  --signal:#0B7A52;
+  --panel-2:#eef3f7;
+  --line:#e3ecea;
+  --line-soft:#e3ecea;
+  --paper:#0d1a26;
+  --muted:#5c6c7c;
+  --signal:#00796b;
   --signal-ink:#FFFFFF;
-  --signal-fill:#E3F6EE;
+  --signal-fill:#e8faf6;
   --signal-line:#8FD5BC;
-  --signal-hover:#0A6A47;
+  --signal-hover:#00796b;
   --amber:#8A5300;
   --amber-ink:#FFFFFF;
   --amber-fill:#FCF0DA;
@@ -105,11 +106,11 @@
   --field-input:#FFFFFF;
   --btn-hover:#DFE6ED;
   --btn-hover-line:#9DB0C2;
-  --placeholder:#6E7884;
-  --code-bg:#EEF2F6;
-  --inset:#F7F9FB;
+  --placeholder:#5c6c7c;
+  --code-bg:#eef3f7;
+  --inset:#f3f8f7;
   --scrim:rgba(15,23,32,.45);
-  --shadow:0 8px 24px rgba(15,23,32,.16);
+  --shadow:0 24px 60px -28px rgba(19,37,54,.35);
 }
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
@@ -119,9 +120,12 @@ body{
   color:var(--paper);
   font-family:var(--sans);
   font-size:16px;
-  line-height:1.5;
+  line-height:1.6;
   min-height:100%;
+  -webkit-font-smoothing:antialiased;
 }
+/* display type, same voice as the front page: headings, brand and buttons */
+.auth h1,.block h2,dialog h2,.brand-title,.who strong{font-family:var(--display)}
 button{font:inherit;color:inherit}
 input,select{font:inherit}
 :focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:4px}
@@ -133,11 +137,12 @@ input,select{font:inherit}
 .muted{color:var(--muted)}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  padding:11px 16px;border-radius:8px;border:1px solid var(--line);
+  padding:12px 20px;border-radius:999px;border:1px solid var(--line);
   background:var(--panel-2);color:var(--paper);cursor:pointer;
-  font-weight:500;transition:background .12s ease,border-color .12s ease;
+  font-family:var(--display);font-weight:700;
+  transition:background .12s ease,border-color .12s ease,transform .12s ease;
 }
-.btn:hover:not(:disabled){background:var(--btn-hover);border-color:var(--btn-hover-line)}
+.btn:hover:not(:disabled){background:var(--btn-hover);border-color:var(--btn-hover-line);transform:translateY(-1px)}
 .btn:disabled{opacity:.42;cursor:not-allowed}
 .btn-quiet{background:transparent}
 .btn-quiet:hover:not(:disabled){background:var(--panel-2)}
@@ -146,9 +151,10 @@ input,select{font:inherit}
 .field{display:block;margin:0 0 14px}
 .field span{display:block;font-size:.86rem;color:var(--muted);margin-bottom:6px}
 .field input,.field select{
-  width:100%;padding:11px 12px;border-radius:8px;
+  width:100%;padding:13px 15px;border-radius:12px;
   border:1px solid var(--line);background:var(--field-input);color:var(--paper);
 }
+.field input:focus,.field select:focus{outline:2px solid var(--signal);outline-offset:2px;border-color:var(--signal)}
 .field input::placeholder{color:var(--placeholder)}
 .note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
 .err{color:var(--alert);font-size:.9rem;margin:0 0 12px;min-height:1.2em}
@@ -246,8 +252,8 @@ tfoot td{border-top:1px solid var(--line);font-weight:600}
 
 dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);border-radius:var(--r);padding:22px;width:min(400px,92vw)}
 #impDlg{width:min(680px,94vw)}
-#impDlg textarea{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);font-family:var(--mono);font-size:.84rem;resize:vertical}
-#impDlg code{background:var(--code-bg);border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px}
+#impDlg textarea{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);font-family:var(--mono);font-size:.84rem;resize:vertical}
+#impDlg code{background:var(--code-bg);border:1px solid var(--line-soft);border-radius:6px;padding:1px 5px}
 #impDlg input[type=file]{color:var(--muted);font-size:.88rem;max-width:100%}
 #impResult{max-height:220px;overflow:auto;margin:6px 0 14px;font-size:.88rem}
 #impResult ul{margin:0;padding-left:18px}
@@ -256,9 +262,9 @@ dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);b
 #impResult .note{color:var(--amber)}
 #impResult .pin{font-family:var(--mono);color:var(--amber)}
 #actDlg{width:min(540px,94vw);max-height:92vh;overflow:auto}
-#actBody textarea{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);resize:vertical;font-family:inherit}
+#actBody textarea{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);resize:vertical;font-family:inherit}
 /* Break 1 / Break 2 / Lunch get a pair of boxes each inside the shift dialogs */
-.pause-edit{border:1px solid var(--line-soft);border-radius:10px;background:var(--inset);padding:12px 14px;margin:0 0 14px}
+.pause-edit{border:1px solid var(--line-soft);border-radius:14px;background:var(--inset);padding:12px 14px;margin:0 0 14px}
 .pause-edit > .note{margin:0 0 10px}
 .pause-row{display:flex;flex-wrap:wrap;gap:0 12px;align-items:flex-end}
 .pause-row .plabel{flex:0 0 54px;font-size:.86rem;color:var(--muted);padding-bottom:11px}
@@ -278,7 +284,7 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .toast{
   position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(20px + env(safe-area-inset-bottom,0px));
-  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:12px;
   padding:11px 18px;font-size:.92rem;z-index:50;box-shadow:var(--shadow)
 }
 /* ---------- the big centre title ---------- */
@@ -291,7 +297,7 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 /* the whole seal + wordmark doubles as the way back to the site front page */
 .brand-home{display:block;color:inherit;text-decoration:none}
 .brand-home:hover{opacity:.86}
-.brand-home:focus-visible{outline:2px solid var(--brand-blue);outline-offset:8px;border-radius:10px}
+.brand-home:focus-visible{outline:2px solid var(--brand-blue);outline-offset:8px;border-radius:12px}
 .brand-title{
   margin:0;font-weight:700;letter-spacing:-.015em;line-height:1.12;
   font-size:clamp(1.55rem,5.4vw,2.9rem);color:var(--brand-navy);
@@ -330,14 +336,14 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sched-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft);flex-wrap:wrap}
 .sched-row:first-child{border-top:0}
 .sched-day{width:3.2em;flex:none;font-weight:600;font-size:.92rem}
-.sched-kind{flex:1 1 150px;min-width:132px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);color:var(--paper)}
+.sched-kind{flex:1 1 150px;min-width:132px;padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:var(--field-input);color:var(--paper)}
 .sched-times{display:flex;align-items:center;gap:6px;flex:2 1 268px;flex-wrap:wrap}
 .sched-times input{
-  padding:8px 9px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);
+  padding:8px 9px;border-radius:12px;border:1px solid var(--line);background:var(--field-input);
   color:var(--paper);font-family:var(--mono);font-size:.88rem;width:7.6em
 }
 #schedDlg textarea{
-  width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);background:var(--field-input);
+  width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--field-input);
   color:var(--paper);resize:vertical;font-family:inherit;font-size:.9rem
 }
 .sched-plus{font-size:.9rem}
@@ -2349,8 +2355,8 @@ $("sLog").addEventListener("click", function(){
 var PNG_PAD = 48,
     PNG_COLS = [116, 246, 92, 92, 76, 76, 76, 84],   /* Date, Status, In, Out, B1, B2, Lunch, Worked */
     PNG_W = PNG_PAD * 2 + 858,
-    PNG_SANS = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    PNG_MONO = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    PNG_SANS = '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
+    PNG_MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
 /* the status pills keep the same colours they have on screen */
 var PNG_ST = {
   "st-ok":     { bg:"#E3F6EE", line:"#8FD5BC", ink:"#0B7A52" },
@@ -3098,4 +3104,3 @@ boot();
 </script>
 </body>
 </html>
-<script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="60a7a115-1330-4d32-ad1d-1170bab742d0" data-app-host="app.netlify.com"></script>
