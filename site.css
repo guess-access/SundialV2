@@ -135,6 +135,11 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
 .nav__links{display:flex;gap:26px;margin-left:auto;font-size:15px;font-weight:500}
 .nav__links a:not(.btn){color:var(--muted);text-decoration:none;transition:color .18s}
 .nav__links a:not(.btn):hover{color:var(--teal-deep)}
+/* live Eastern clock riding in the nav's right slot */
+.nav__clock{
+  font-family:var(--sans);font-size:13px;font-weight:600;color:var(--muted);
+  letter-spacing:.04em;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
   font-family:var(--sans);font-weight:700;font-size:15px;
@@ -181,6 +186,7 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
   background:var(--coral);opacity:.5;border-radius:4px;
 }
 .lede{font-size:clamp(16.5px,1.5vw,19px);color:var(--muted);max-width:52ch;margin:20px 0 0}
+.hero__act{display:flex;margin-top:28px}
 
 /* hero mark card */
 .markcard{

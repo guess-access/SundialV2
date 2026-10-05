@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>sundial — HR + Payroll</title>
+<title>Sundial Solstice</title>
 <meta name="description" content="Sundial brings schedules, timesheets, leave and payroll runs into one place — with an animated mark built for loading screens and video intros.">
 <link rel="icon" href="sundial-mark.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,10 +34,10 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <circle class="sd-dot" cx="120" cy="120" r="16"/>
         </g>
       </svg>
-      <span class="brand__word">sundial</span>
+      <span class="brand__word">Sundial Solstice</span>
     </a>
     <nav class="nav__links">
-      <a class="btn btn--primary btn--sm" href="about.html">About us</a>
+      <time class="nav__clock" id="navClock" title="US Eastern time">…</time>
     </nav>
     <button class="btn btn--ghost btn--sm theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
   </div>
@@ -53,6 +53,11 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         Sundial keeps schedules, timesheets, leave and pay runs on one clock — so the
         month closes itself and nobody has to reconcile a spreadsheet at midnight.
       </p>
+      <div class="hero__act">
+        <a class="btn btn--primary" href="about.html">About us
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
     </div>
 
     <div class="markcard">
@@ -111,7 +116,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <circle class="sd-dot" cx="120" cy="120" r="16"/>
         </g>
       </svg>
-      <span class="brand__word">sundial</span>
+      <span class="brand__word">Sundial Solstice</span>
     </a>
     <nav class="foot__links">
       <a href="about.html">About us</a>
@@ -123,6 +128,26 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
 </footer>
 
 <script>
+// Live US Eastern clock in the nav, ticking every second.
+(function () {
+  var el = document.getElementById('navClock');
+  if (!el) return;
+  function fmt(d) {
+    try {
+      var day = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' }).format(d);
+      var time = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, timeZoneName: 'short' }).format(d);
+      return day + ' · ' + time;
+    } catch (e) { return d.toLocaleString(); }
+  }
+  function tick() {
+    var now = new Date();
+    el.textContent = fmt(now);
+    el.setAttribute('datetime', now.toISOString());
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
 // The hero sign-in does not submit anywhere - it hands the credentials over to
 // the app. They ride in sessionStorage rather than the query string, so a
 // passcode never lands in a URL, a history entry or a server log. Pressing
