@@ -1,6 +1,7 @@
 # Prestige Dealer Alliance Timelogs
 
-Single-file time-clock app (front end) — the file Netlify serves as `index.html`.
+Single-file time-clock app (front end) — `app.html`, with the landing page now taking
+over `index.html` at the site root.
 
 Originally deployed as **Shift Clock** on `sundial-logs.netlify.app`; this copy adds:
 
@@ -139,30 +140,36 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
 
 ## Landing page
 
-`landing.html` is the marketing page: a hero built around the animated mark, a showcase of
-the mark in the two places it actually runs (a 16:9 **video intro** frame and an **app
-loading screen**), the feature list, the colour and motion spec, and a download for the
-asset. It links through to `index.html`, which is untouched — the app still answers at the
-site root.
+`index.html` is the front page, and it is what the site root serves: a headline on the left, and on the right the app itself — its **loading screen** with the mark still turning, and a **sign-in** directly underneath. Pressing Sign in lights a loading line under the mark — the same bar the video-intro frame uses — with *Warming up your timesheet…* beneath it, while the credentials travel across.
 
-The mark itself lives in `sundial-mark.svg` as one self-contained file: the two orbits slowly
+The hero sign-in does not post anywhere. It hands the username and passcode to `app.html` through `sessionStorage` — never in the query string, so a passcode never reaches a URL, a history entry or a server log — and the app fills its own form and signs in once the server answers. If the backend is missing the fields stay filled and the app explains why it cannot finish, rather than the form failing silently.
+
+Everything else lives one click away on `about.html`: the mark in motion (the 16:9 **video intro** frame, the app loading screen, the reversed lockup), the feature list, the colour and motion spec, and the asset download. Both marketing pages share one stylesheet, `site.css`, so the dark/light switch paints them identically.
+
+The app itself is `app.html`. Its seal-and-wordmark header is the way back to the front page.
+
+The mark lives in `sundial-mark.svg` as one self-contained file: the two orbits slowly
 counter-rotate (**16s** and **22s**, linear, so the loop point is invisible) while the lime
 centre dot pulses (**2.4s**) with a halo pinging outward, after a one-off draw-in beat
 (ring traces over 1.4s, orbits fade, dot pops). It is pure CSS — no JavaScript, no SMIL —
 so it works as an `<img>`, as an inline `<svg>` you can restyle, and as a favicon. It
 resolves to a finished static state under `prefers-reduced-motion`.
 
-    http://localhost:8788/landing.html     # any static server works, e.g. serve.ps1
+    http://localhost:8788/          # the front page, at the site root
+    http://localhost:8788/about.html # about: the mark, the product, colours, assets
+    http://localhost:8788/app.html # the app — any static server works, e.g. serve.ps1
 
-Because the page is static, it publishes everywhere `index.html` does — GitHub Pages and
-Netlify alike — with no build step.
+Because all three pages are static, they publish anywhere this repository does — GitHub Pages
+and Netlify alike — with no build step.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | The site — the page Netlify serves. |
-| `landing.html` | The landing page — hero, animated mark, motion showcase, colours, asset download. |
+| `index.html` | The site root — the front page: headline, the app's loading screen and sign-in. |
+| `about.html` | About us — the mark in motion, product, colours, asset download. Shares `site.css`. |
+| `site.css` | The one stylesheet behind `index.html` and `about.html`, dark by default with a light switch. |
+| `app.html` | The app — clock, timesheets, leave, payroll. Everything a signed-in person sees. |
 | `sundial-mark.svg` | The animated mark on its own: rotating orbits, pulsing dot, self-contained CSS. |
 | `netlify/functions/*.js` | The backend: `status`, `salt`, `signup`, `login`, `logout`, `state`, `sync`, `migrate`, `health`. |
 | `lib/store.js` | Shared storage and permission code the functions are bundled with. |

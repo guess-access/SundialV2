@@ -1,7 +1,8 @@
 # Prestige Dealer Alliance - timelogs
 #
-# The page is plain static HTML (index.html at the repository root).
-# The backend lives in netlify/functions and is reached through /api/...
+# The site is plain static HTML: index.html is the landing page at the root,
+# app.html is the time-clock itself. The backend lives in netlify/functions
+# and is reached through /api/...
 
 [build]
   publish = "."

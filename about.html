@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>About sundial — the mark, the product, the colours</title>
+<meta name="description" content="About Sundial: the animated mark in motion, what the product does, the colour and motion spec, and the asset download.">
+<link rel="icon" href="sundial-mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<script>
+/* Applied before first paint, so the page never flashes the other theme. Dark is
+   the built-in default, so only a remembered preference has to be written back. */
+try{var __t=localStorage.getItem("sundial-theme");
+if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme",__t);
+}catch(e){}
+</script>
+
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="index.html">
+      <svg class="brand__mark" viewBox="0 0 240 240" aria-hidden="true">
+        <circle class="sd-ring" cx="120" cy="120" r="104"/>
+        <g class="sd-orbit sd-orbit--a"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(-44 120 120)"/></g>
+        <g class="sd-orbit sd-orbit--b"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(44 120 120)"/></g>
+        <g class="sd-dotwrap">
+          <circle class="sd-halo" cx="120" cy="120" r="16"/>
+          <circle class="sd-dot" cx="120" cy="120" r="16"/>
+        </g>
+      </svg>
+      <span class="brand__word">sundial</span>
+    </a>
+    <nav class="nav__links">
+      <a href="#motion">The mark</a>
+      <a href="#features">Product</a>
+      <a href="#palette">Colours</a>
+      <a href="#assets">Assets</a>
+    </nav>
+    <button class="btn btn--ghost btn--sm theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
+    <a class="btn btn--primary btn--sm" href="app.html">Open the app</a>
+  </div>
+</header>
+
+<main id="top">
+<!-- ============ MOTION ============ -->
+<section class="section section--soft" id="motion">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">The mark in motion</span>
+      <h2>Built for the seconds before the content.</h2>
+      <p>
+        Loading screens and video intros give you almost no time and no interaction —
+        so the mark does exactly two things, forever: the orbits drift around each
+        other at a slow, unhurried pace, and the centre dot breathes. It never ends,
+        never stutters, and never needs a frame of setup.
+      </p>
+    </div>
+
+    <div class="motion">
+      <!-- video intro -->
+      <div class="panel">
+        <div class="panel__label"><span>Video intro · 16:9</span><span>looping</span></div>
+        <div class="intro">
+          <div class="intro__rec"><i></i>REC · SUN-INTRO-01</div>
+          <div class="intro__inner">
+            <img class="intro__mark" src="sundial-mark.svg" alt="Sundial animated mark playing inside a video intro frame">
+            <div class="intro__word">sundial</div>
+            <div class="intro__sub">HR + Payroll</div>
+          </div>
+          <div class="intro__hud">
+            <div class="intro__bar"><i></i></div>
+            <div class="intro__meta"><span>PREPARING YOUR PAY RUN</span><span id="pct">62%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side">
+        <!-- app splash -->
+        <div class="panel">
+          <div class="panel__label"><span>App loading screen</span><span>light</span></div>
+          <div class="splash">
+            <img class="splash__mark" src="sundial-mark.svg" alt="Sundial animated mark on a light loading screen">
+            <div class="splash__title">sundial</div>
+            <div class="splash__status">Warming up your timesheet…</div>
+            <div class="dots"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <!-- reversed lockup -->
+        <div class="panel">
+          <div class="panel__label"><span>Reversed lockup</span><span>dark</span></div>
+          <div class="reverse">
+            <img class="reverse__mark" src="sundial-mark.svg" alt="Sundial animated mark reversed on a dark background">
+            <div class="reverse__word">sundial</div>
+            <div class="reverse__sub">HR + Payroll</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="motion-notes">
+      <div class="note"><b>Seamless forever</b><p>CSS keyframes with linear timing on the orbits — the loop point is invisible, so a 3-second cut and a 3-minute hold look identical.</p></div>
+      <div class="note"><b>No JavaScript</b><p>Two counter-rotating ellipses and a pulsing circle. Nothing to execute, nothing to block first paint.</p></div>
+      <div class="note"><b>Scales to any size</b><p>Pure vector: legible from a 24px favicon to a 4K title card, on light or dark backgrounds.</p></div>
+      <div class="note"><b>Respects the setting</b><p>With <code>prefers-reduced-motion</code> the mark resolves to its finished, static state — still on brand, just still.</p></div>
+    </div>
+
+    <div class="motion-notes" style="margin-top:18px">
+      <div class="note"><b>Orbit A</b><p>Teal, clockwise, <code>16s</code> linear.</p></div>
+      <div class="note"><b>Orbit B</b><p>Coral, counter-clockwise, <code>22s</code> linear — the mismatch keeps the crossing angle alive.</p></div>
+      <div class="note"><b>Dot</b><p>Lime, <code>2.4s</code> ease-in-out pulse to <code>1.3×</code>, with a halo pinging outward.</p></div>
+      <div class="note"><b>Draw-in</b><p>Ring traces over <code>1.4s</code>, orbits fade, dot pops — one clean opening beat for a title card.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">What it does</span>
+      <h2>One clock for the whole pay cycle.</h2>
+      <p>Everything the office argues about at month end, settled while the day is still happening.</p>
+    </div>
+    <div class="features">
+      <div class="feature"><div class="feature__dot"><i></i></div><h3>Time &amp; attendance</h3><p>Clock in, start a break, clock out — in the browser, on the shop floor or at the desk. Overnight shifts keep their <code>(next day)</code> marker.</p></div>
+      <div class="feature"><div class="feature__dot"><i></i></div><h3>Payroll runs</h3><p>Approve a period, export the totals, close the month. Every number traces back to a punch somebody actually made.</p></div>
+      <div class="feature"><div class="feature__dot"><i></i></div><h3>Schedules</h3><p>Fixed hours, split shifts, rest days and flexible days — dated, so last week is still judged by last week's roster.</p></div>
+      <div class="feature"><div class="feature__dot"><i></i></div><h3>Leave &amp; requests</h3><p>Staff ask, admins approve or decline, and both outcomes land in that person's change history with a name attached.</p></div>
+      <div class="feature"><div class="feature__dot"><i></i></div><h3>Audit trail</h3><p>Every edit records who did it, what changed and when. The sheet explains itself without anyone rebuilding it.</p></div>
+      <div class="feature"><div class="feature__dot"><i></i></div><h3>Reporting</h3><p>Day-by-day timesheets and punch logs as CSV, in 12-hour US Eastern time, ready for whatever payroll system comes next.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PALETTE + SPEC ============ -->
+<section class="section section--soft" id="palette">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Colours &amp; motion</span>
+      <h2>Four colours, two speeds, one mark.</h2>
+      <p>Sampled from the lockup. Teal carries the structure, coral crosses it, lime is only ever the pulse — that restraint is what makes the dot readable at 24px.</p>
+    </div>
+
+    <div class="palette">
+      <div class="swatch"><div class="swatch__chip" style="background:#00bfa6"></div><div class="swatch__meta"><b>Orbit teal</b><code>#00BFA6</code><p>Ring and orbit A. The brand's structural colour.</p></div></div>
+      <div class="swatch"><div class="swatch__chip" style="background:#ff8b7e"></div><div class="swatch__meta"><b>Orbit coral</b><code>#FF8B7E</code><p>Orbit B and accents. Only ever crosses, never fills.</p></div></div>
+      <div class="swatch"><div class="swatch__chip" style="background:#a5d637"></div><div class="swatch__meta"><b>Pulse lime</b><code>#A5D637</code><p>The dot and its halo. Reserved for motion.</p></div></div>
+      <div class="swatch"><div class="swatch__chip" style="background:#22384a"></div><div class="swatch__meta"><b>Wordmark navy</b><code>#22384A</code><p>Type and reversed surfaces.</p></div></div>
+    </div>
+
+    <div class="spec">
+      <div class="spec__row"><b>Rotation</b><p>Orbit A <code>16s</code> clockwise, orbit B <code>22s</code> counter-clockwise. Both linear — easing would make the loop visible.</p></div>
+      <div class="spec__row"><b>Pulse</b><p>Dot scales <code>1 → 1.3 → 1</code> over <code>2.4s</code> ease-in-out, halo expands to <code>3.4×</code> and fades on the same clock.</p></div>
+      <div class="spec__row"><b>Opening beat</b><p>Ring draws <code>1.4s</code>, orbits fade in at <code>0.25s</code>/<code>0.45s</code>, dot pops at <code>0.5s</code>. Runs once, then loops.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ASSETS ============ -->
+<section class="section" id="assets">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Take it with you</span>
+      <h2>Drop the mark anywhere.</h2>
+      <p>
+        <a href="sundial-mark.svg" download><strong>sundial-mark.svg</strong></a> is a
+        single self-contained file — animations included. Reference it from an
+        <code>&lt;img&gt;</code>, an app splash, a Lottie-style hold frame, or hand it to
+        your editor as the exact reference for the title card.
+      </p>
+    </div>
+
+    <div class="snippet">
+      <div class="snippet__bar">
+        <span>Standalone use</span>
+        <button class="btn btn--lime btn--sm" type="button" id="copyBtn" data-state="idle">Copy snippet</button>
+      </div>
+      <pre id="snippet"><code><span class="t">&lt;img</span> <span class="a">src</span>=<span class="v">"sundial-mark.svg"</span> <span class="a">width</span>=<span class="v">"240"</span> <span class="a">height</span>=<span class="v">"240"</span> <span class="a">alt</span>=<span class="v">"Sundial"</span><span class="t">&gt;</span>
+
+<span class="t">&lt;!-- or inline it and restyle the strokes --&gt;</span>
+<span class="t">&lt;object</span> <span class="a">type</span>=<span class="v">"image/svg+xml"</span> <span class="a">data</span>=<span class="v">"sundial-mark.svg"</span><span class="t">&gt;&lt;/object&gt;</span></code></pre>
+    </div>
+
+    <div class="cta" style="margin-top:44px">
+      <img class="cta__mark" src="sundial-mark.svg" alt="">
+      <div class="cta__copy">
+        <h2>Ready when the payroll is.</h2>
+        <p>Open the timesheet, or read how the backend fits together. Same deploy, same branch.</p>
+      </div>
+      <div class="cta__act">
+        <a class="btn btn--lime" href="app.html">Open the app</a>
+        <a class="btn btn--ghost" href="https://github.com/guess-access/SundialV2#readme" target="_blank" rel="noopener">Read the docs</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot">
+  <div class="wrap foot__in">
+    <a class="brand" href="index.html">
+      <svg class="brand__mark" viewBox="0 0 240 240" aria-hidden="true">
+        <circle class="sd-ring" cx="120" cy="120" r="104"/>
+        <g class="sd-orbit sd-orbit--a"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(-44 120 120)"/></g>
+        <g class="sd-orbit sd-orbit--b"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(44 120 120)"/></g>
+        <g class="sd-dotwrap">
+          <circle class="sd-halo" cx="120" cy="120" r="16"/>
+          <circle class="sd-dot" cx="120" cy="120" r="16"/>
+        </g>
+      </svg>
+      <span class="brand__word">sundial</span>
+    </a>
+    <nav class="foot__links">
+      <a href="#motion">The mark</a>
+      <a href="#features">Product</a>
+      <a href="#palette">Colours</a>
+      <a href="sundial-mark.svg" download>Download the SVG</a>
+      <a href="app.html">Open the app</a>
+    </nav>
+    <small>HR + Payroll · animated mark for loading screens &amp; video intros</small>
+  </div>
+</footer>
+
+<script>
+// Percentage counter for the video-intro mock, kept on the same 6s clock as the
+// CSS progress bar so the two never drift apart.
+(function () {
+  var el = document.getElementById('pct');
+  if (!el) return;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var DURATION = 6000;
+  if (reduce.matches) { el.textContent = '62%'; return; }
+  var start = performance.now();
+  function tick(now) {
+    var t = ((now - start) % DURATION) / DURATION;
+    var eased = t < 0.55 ? (t / 0.55) * 0.78 : 0.78 + ((t - 0.55) / 0.45) * 0.22;
+    el.textContent = Math.round(eased * 100) + '%';
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+// Copy the standalone snippet.
+(function () {
+  var btn = document.getElementById('copyBtn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var text = '<img src="sundial-mark.svg" width="240" height="240" alt="Sundial">';
+    var done = function () {
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = 'Copy snippet'; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, done);
+    } else { done(); }
+  });
+})();
+</script>
+<script>
+(function(){
+  var btn=document.getElementById("themeBtn"),
+      label=document.getElementById("themeLabel"),
+      root=document.documentElement;
+  function current(){return root.getAttribute("data-theme")==="light"?"light":"dark";}
+  function paint(){var c=current();label.textContent=c==="light"?"Light":"Dark";
+                   btn.setAttribute("aria-pressed",c==="dark");}
+  paint();
+  btn.addEventListener("click",function(){
+    var next=current()==="dark"?"light":"dark";
+    root.setAttribute("data-theme",next);
+    try{localStorage.setItem("sundial-theme",next);}catch(e){}
+    paint();
+  });
+})();
+</script>
+</body>
+</html>
