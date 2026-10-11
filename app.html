@@ -653,11 +653,11 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <h2>People</h2>
         <div class="scroller">
           <table>
-            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Schedule (EST)</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Team Lead</th><th>Schedule (EST)</th><th>Status</th><th></th></tr></thead>
             <tbody id="teamBody"></tbody>
           </table>
         </div>
-        <div class="toolbar" style="margin:18px 0 0">
+        <div class="toolbar" id="teamToolbar" style="margin:18px 0 0">
           <button class="btn" id="tAdd">Add a person</button>
           <button class="btn btn-in" id="tImport">Import from CSV</button>
           <button class="btn" id="tExport">Export every timesheet</button>
@@ -738,6 +738,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
             <div class="emp-profile__meta" id="empProfileMeta"></div>
           </div>
         </div>
+        <p class="note" id="empLeadLine" style="margin:0 0 14px"></p>
         <p class="note" id="empFormNote" style="margin:0 0 14px"></p>
         <label class="field"><span>Username (sign-in name, never changes)</span>
           <input type="text" id="empUser" disabled>
@@ -1085,6 +1086,15 @@ var Demo = (function () {
     }
     return true;
   }
+  /* A team lead may act on people assigned to them - anyone whose leadId points
+     at them - short of account lifecycle and settings. Anything else stays admin. */
+  function leadFor(db, me, userId) {
+    if (!me || me.role !== "lead" || me.active === false) return false;
+    if (typeof userId !== "string" || !userId || userId === me.id) return false;
+    var list = asList(db.users), tu = null;
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === userId) { tu = list[i]; break; }
+    return !!tu && tu.role !== "admin" && tu.leadId === me.id;
+  }
   function putItem(db, coll, item, self, isAdmin) {
     if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id) {
       var e400 = new Error("That change was missing an id."); e400.status = 400; throw e400;
@@ -1096,16 +1106,30 @@ var Demo = (function () {
     function deny(status, msg) { var e = new Error(msg); e.status = status; throw e; }
 
     if (coll === "users") {
-      /* Accounts and passcodes are an admin's job - with one exception: people
-         may update their own employee information (name and contact details).
-         Position and hire date stay admin-only, as do username, role, active
-         state, passcode and schedule. */
+      /* Accounts and passcodes are an admin's job - with two exceptions: people
+         may update their own employee information, and team leads may rewrite
+         their reports' schedules. Everything account-shaped stays admin-only. */
       if (!isAdmin) {
         var SELF_INFO = ["name", "firstName", "middleName", "lastName", "birthdate", "photo",
           "phone", "address", "emergency", "notes"];
-        if (!existing || item.id !== self.id || existing.id !== self.id) {
-          deny(403, "You can only change your own information.");
-        }
+        var ownRec = !!existing && item.id === self.id && existing.id === self.id;
+        var leadRec = !ownRec && !!existing && leadFor(db, self, item.id);
+        if (!ownRec && !leadRec) deny(403, "You can only change your own information.");
+        if (leadRec) {
+          var SCHED_KEYS = ["sched", "schedules"];
+          var touchedL = Object.keys(item), tl;
+          for (tl = 0; tl < touchedL.length; tl++) {
+            var kl = touchedL[tl];
+            if (kl === "id" || SCHED_KEYS.indexOf(kl) >= 0) continue;
+            var al = item[kl], bl = existing[kl];
+            var sameL = al === bl || (al && bl && typeof al === "object" && typeof bl === "object" &&
+              JSON.stringify(al) === JSON.stringify(bl));
+            if (!sameL) deny(403, "Only an admin can change that.");
+          }
+          stored = {};
+          Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
+          SCHED_KEYS.forEach(function (k) { if (item[k] !== undefined) stored[k] = item[k]; });
+        } else {
         /* The page saves whole records, so untouched fields (role, schedule,
            passcode hash) ride along: only an actual change to a protected
            field is refused. */
@@ -1127,12 +1151,14 @@ var Demo = (function () {
           if (stored.name.trim().length < 2) deny(400, "Enter the name that should appear on the timesheet.");
           stored.name = stored.name.trim();
         }
+        }
       } else {
         stored = {};
         if (existing) Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
         Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
         if (typeof stored.username === "string") stored.username = stored.username.trim().toLowerCase();
-        stored.role = stored.role === "admin" ? "admin" : "staff";
+        /* admin, lead and staff all survive a save - anything else becomes staff */
+        stored.role = stored.role === "admin" ? "admin" : stored.role === "lead" ? "lead" : "staff";
         stored.active = stored.active !== false;
         if (existing && existing.role === "admin" && existing.active !== false) {
           var stillAdmin = (stored.role === "admin") && (stored.active !== false);
@@ -1145,8 +1171,10 @@ var Demo = (function () {
       if (typeof item.userId !== "string" || typeof item.inAt !== "string") {
         deny(400, "That shift wasn't in a format this server understands.");
       }
-      if (!isAdmin && item.userId !== self.id) deny(403, "You can only change your own shifts.");
-      if (!isAdmin) {
+      if (!isAdmin && item.userId !== self.id && !leadFor(db, self, item.userId)) {
+        deny(403, "You can only change your own shifts.");
+      }
+      if (!isAdmin && !leadFor(db, self, item.userId)) {
         var editMsg = "That shift is already recorded. Send a correction request for an admin to approve.";
         if (existing) {
           if (String(item.inAt) !== String(existing.inAt)) deny(403, editMsg);
@@ -1160,8 +1188,23 @@ var Demo = (function () {
       if (Array.isArray(stored.audit) && stored.audit.length > MAX_ENTRY_AUDIT) stored.audit = stored.audit.slice(-MAX_ENTRY_AUDIT);
     } else {
       if (typeof item.userId !== "string") deny(400, "That request wasn't in a format this server understands.");
-      if (!isAdmin) {
-        if (item.userId !== self.id) deny(403, "You can only change your own requests.");
+      /* Who may decide: an admin, or the reporter's team lead inside the first
+         24 hours - after that it is the site admin's call. Everyone else keeps
+         the original rules: your own requests, pending only, read receipts. */
+      var reporterId = existing ? existing.userId : item.userId;
+      var mine = reporterId === self.id;
+      var decide = false;
+      if (!isAdmin && !mine) {
+        if (!existing) deny(403, "You can only change your own requests.");
+        if (leadFor(db, self, reporterId)) {
+          var createdAt = new Date(existing.createdAt || 0).getTime();
+          if (Date.now() - createdAt < 24 * 3600 * 1000) decide = true;
+          else deny(403, "Only the site admin can decide this now — it escalated after 24 hours.");
+        } else {
+          deny(403, "Only an admin can approve or decline a request.");
+        }
+      }
+      if (!isAdmin && !decide) {
         var sameOutcome = existing &&
           String(item.status || "") === String(existing.status || "") &&
           String(item.resolvedBy || "") === String(existing.resolvedBy || "") &&
@@ -1171,6 +1214,18 @@ var Demo = (function () {
         } else if ((item.status && item.status !== "pending") || item.resolvedBy) {
           deny(403, "Only an admin can approve or decline a request.");
         }
+      }
+      if (decide) {
+        /* a team lead's decision touches the decision fields only */
+        var allowed = ["status", "resolvedBy", "resolvedAt", "seen"], okKeys = true;
+        var keys = Object.keys(item);
+        for (var q = 0; q < keys.length; q++) {
+          var k = keys[q];
+          if (k === "id" || allowed.indexOf(k) >= 0) continue;
+          var a = item[k], b = existing[k];
+          if (!(a === b || (a && b && typeof a === "object" && typeof b === "object" && JSON.stringify(a) === JSON.stringify(b)))) { okKeys = false; break; }
+        }
+        if (!okKeys) deny(403, "Only an admin can change that.");
       }
       stored = {};
       Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
@@ -1208,12 +1263,29 @@ var Demo = (function () {
       asList(c.del).forEach(function (d) { delItem(db, coll, d && d.id, self, isAdmin); });
     });
     if (patch.settings !== undefined && patch.settings !== null) {
-      if (!isAdmin) { var e = new Error("Only an admin can change settings."); e.status = 403; throw e; }
-      if (typeof patch.settings !== "object" || Array.isArray(patch.settings)) bad();
-      var next = {};
-      Object.keys(patch.settings).forEach(function (k) { next[k] = patch.settings[k]; });
-      if (Array.isArray(next.audit) && next.audit.length > MAX_AUDIT) next.audit = next.audit.slice(-MAX_AUDIT);
-      db.settings = next;
+      if (!isAdmin) {
+        /* a team lead deciding reports only ever appends to the change history */
+        if (!self || self.role !== "lead" || self.active === false) { var e = new Error("Only an admin can change settings."); e.status = 403; throw e; }
+        var so = (db.settings && typeof db.settings === "object") ? db.settings : {};
+        var skeys = Object.keys(patch.settings), auditOnly = true;
+        for (var q2 = 0; q2 < skeys.length; q2++) {
+          var k2 = skeys[q2];
+          if (k2 === "audit") continue;
+          var pa = patch.settings[k2], oa = so[k2];
+          if (!(pa === oa || (pa && oa && typeof pa === "object" && typeof oa === "object" && JSON.stringify(pa) === JSON.stringify(oa)))) { auditOnly = false; break; }
+        }
+        if (!auditOnly || !Array.isArray(patch.settings.audit)) { var e2 = new Error("Only an admin can change settings."); e2.status = 403; throw e2; }
+        var merged = {};
+        Object.keys(so).forEach(function (k3) { merged[k3] = so[k3]; });
+        merged.audit = patch.settings.audit.slice(-MAX_AUDIT);
+        db.settings = merged;
+      } else {
+        if (typeof patch.settings !== "object" || Array.isArray(patch.settings)) bad();
+        var next = {};
+        Object.keys(patch.settings).forEach(function (k) { next[k] = patch.settings[k]; });
+        if (Array.isArray(next.audit) && next.audit.length > MAX_AUDIT) next.audit = next.audit.slice(-MAX_AUDIT);
+        db.settings = next;
+      }
     }
   }
 
@@ -2350,9 +2422,9 @@ function render(){
   if(!u){ paintAuth(); tick(); return; }
 
   $("whoName").textContent = u.name;
-  $("whoRole").textContent = "@" + u.username + (u.role === "admin" ? " · admin" : "");
+  $("whoRole").textContent = "@" + u.username + (u.role === "admin" ? " · admin" : u.role === "lead" ? " · lead" : "");
   $("whoAva").innerHTML = empAvatar(u, "who-ava");
-  show($("tabTeam"), u.role === "admin");
+  show($("tabTeam"), u.role === "admin" || u.role === "lead");
   show($("tabSched"), true); // the month view is posted for everyone; editing stays admin-only
   show($("btnPin"), u.role === "admin");   // passcodes are changed by an admin
   show($("sExport"), u.role === "admin");  // only an admin exports timesheets and punch logs
@@ -2363,7 +2435,7 @@ function render(){
   show($("btnOutageReq"), u.role !== "admin"); // same for power and internet outages
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
   document.querySelector('.tab[data-view="schedules"]').textContent = u.role === "admin" ? "Schedules" : "Attendance";
-  if(u.role !== "admin" && view === "team") setView("clock");
+  if(u.role === "staff" && view === "team") setView("clock");
 
   show($("fPerson"), u.role === "admin");
   if(u.role === "admin"){
@@ -2377,7 +2449,7 @@ function render(){
 
   renderClock(u);
   if(view === "sheet") renderSheet(u);
-  if(view === "team" && u.role === "admin") renderTeam();
+  if(view === "team" && u.role !== "staff") renderTeam();
   if(view === "schedules") renderSchedules();
   if(view === "employees") renderEmployees();
   tick();
@@ -2560,9 +2632,64 @@ function renderSheet(me){
   show($("auditBlock"), audit.length > 0);
 }
 
+/* ---------------- team leads ----------------
+   Every request names its first approver: the reporter's team lead inside the
+   first 24 hours, the site admin after that (or from the start when nobody is
+   assigned). Team leads decide their reports' requests and write their
+   reports' shifts; everything account-shaped stays admin-only. */
+var LEAD_WINDOW = 24 * 3600 * 1000;
+function leadOf(u){
+  if(!u || !u.leadId) return null;
+  var found = state.users.filter(function(x){ return x.id === u.leadId; })[0] || null;
+  return found && found.active !== false ? found : null;
+}
+function assigneeFor(r){
+  function firstAdmin(){
+    var admins = state.users.filter(function(x){ return x.role === "admin" && x.active !== false; })
+      .sort(function(a, b){ return String(a.createdAt || "9999") < String(b.createdAt || "9999") ? -1 : 1; });
+    return admins[0] || null;
+  }
+  var none = { user: null, escalated: false };
+  if(!r) return none;
+  var reporter = userOf(r.userId);
+  if(!reporter || reporter.role === "admin") return { user: firstAdmin(), escalated: false };
+  var lead = leadOf(reporter);
+  if(lead && (lead.role === "lead" || lead.role === "admin") && lead.id !== reporter.id){
+    if(r.createdAt && Date.now() - new Date(r.createdAt).getTime() < LEAD_WINDOW) {
+      return { user: lead, escalated: false };
+    }
+    return { user: firstAdmin(), escalated: true };
+  }
+  return { user: firstAdmin(), escalated: false };
+}
+function canApprove(r){
+  var me = currentUser(); if(!me) return false;
+  if(me.role === "admin") return true;
+  var a = assigneeFor(r);
+  return !a.escalated && !!a.user && a.user.id === me.id;
+}
+function assigneeText(r){
+  var a = assigneeFor(r);
+  if(!a.user) return "No admin on file — add one first.";
+  return "Assigned to @" + a.user.username + (a.escalated ? " (escalated after 24 hours)" : "");
+}
+/* Call first inside every approve/decline run: existence, still pending, and
+   whether this signed-in person may decide it. Returns an error string or null. */
+function guardDecision(r){
+  if(!r) return "That request is no longer here.";
+  if(r.status !== "pending") return "That request has already been dealt with.";
+  if(canApprove(r)) return null;
+  var a = assigneeFor(r);
+  return "Only @" + (a.user ? a.user.username : "the site admin") + " can decide this" +
+    (a.escalated ? " — it escalated after 24 hours." : ".");
+}
+
 function renderTeam(){
+  var me = currentUser(), isAdmin = me && me.role === "admin";
   var pending = state.requests.filter(function(r){ return r.status === "pending"; })
     .sort(function(a,b){ return new Date(b.createdAt) - new Date(a.createdAt); });
+  /* leads see only the requests routed to them; admins see everything */
+  if(!isAdmin) pending = pending.filter(function(r){ return canApprove(r); });
   var reqList = $("reqList"); reqList.innerHTML = "";
   pending.forEach(function(r){
     var u = userOf(r.userId);
@@ -2576,11 +2703,13 @@ function renderTeam(){
         : isOutage
         ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
         : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
-          ((r.reqPauses || []).length ? " · break times" : "")) + '</span>' +
+          ((r.reqPauses || []).length ? " · break times" : "")) +
+      '<br><span class="muted" style="font-size:.8rem">' + esc(assigneeText(r)) + "</span></span>" +
       '<button class="btn btn-quiet" data-review="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Review</button>';
     reqList.appendChild(li);
   });
   show($("reqEmpty"), pending.length === 0);
+  show($("teamToolbar"), isAdmin);
   $("reqBadge").textContent = pending.length ? "· " + pending.length + " waiting" : "";
 
   var now = Date.now();
@@ -2602,20 +2731,28 @@ function renderTeam(){
   state.users.forEach(function(u){
     var e = openEntry(u.id);
     var tr = document.createElement("tr");
-    tr.innerHTML = "<td>" + esc(u.name) + "</td><td>@" + esc(u.username) + "</td>" +
-      "<td>" + (u.role === "admin" ? "Admin" : "Staff") + "</td>" +
-      '<td style="white-space:normal;line-height:1.35;font-size:.86rem">' + schedSummary(u) + "</td>" +
-      "<td>" + (!u.active ? '<span class="muted">switched off</span>' : e ? '<span style="color:var(--signal)">on the clock</span>' : '<span class="muted">off</span>') + "</td>" +
-      '<td style="text-align:right;white-space:nowrap">' +
-        '<button class="btn btn-quiet" data-sched="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button> ' +
-        (u.id === (currentUser() || {}).id ? "" :
-          '<button class="btn btn-quiet" data-role="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">' +
-          (u.role === "admin" ? "Make staff" : "Make admin") + "</button> ") +
-        '<button class="btn btn-quiet" data-reset="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Reset passcode</button> ' +
+    var ld = leadOf(u);
+    var selfRow = u.id === (me || {}).id;
+    var roleText = u.role === "admin" ? "Admin" : u.role === "lead" ? "Lead" : "Staff";
+    var nextRole = u.role === "staff" ? "lead" : u.role === "lead" ? "admin" : "staff";
+    var acts = "";
+    if(isAdmin){
+      acts += '<button class="btn btn-quiet" data-sched="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button> ';
+      if(!selfRow){
+        acts += '<button class="btn btn-quiet" data-role="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Make ' + nextRole + "</button> ";
+        if(u.role !== "admin") acts += '<button class="btn btn-quiet" data-lead="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Set lead</button> ';
+      }
+      acts += '<button class="btn btn-quiet" data-reset="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Reset passcode</button> ' +
         '<button class="btn ' + (u.active ? "btn-danger" : "btn-quiet") + '" data-toggle="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">' +
         (u.active ? "Switch off" : "Switch on") + "</button> " +
-        (u.id === (currentUser() || {}).id ? "" :
-          '<button class="btn btn-danger" data-del="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>') + "</td>";
+        (selfRow ? "" : '<button class="btn btn-danger" data-del="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>');
+    }
+    tr.innerHTML = "<td>" + esc(u.name) + "</td><td>@" + esc(u.username) + "</td>" +
+      "<td>" + roleText + "</td>" +
+      "<td>" + esc(ld ? ld.name : "—") + "</td>" +
+      '<td style="white-space:normal;line-height:1.35;font-size:.86rem">' + schedSummary(u) + "</td>" +
+      "<td>" + (!u.active ? '<span class="muted">switched off</span>' : e ? '<span style="color:var(--signal)">on the clock</span>' : '<span class="muted">off</span>') + "</td>" +
+      '<td style="text-align:right;white-space:nowrap">' + acts + "</td>";
     body.appendChild(tr);
   });
   $("tSignup").value = state.settings.signup ? "on" : "off";
@@ -2758,6 +2895,10 @@ function renderEmployees(){
   $("empProfileMeta").textContent = "@" + t.username +
     (t.position ? " · " + t.position : "") +
     (t.employmentStatus ? " · " + t.employmentStatus : "");
+  var tLead = leadOf(t);
+  $("empLeadLine").textContent = tLead
+    ? "Direct Manager: " + tLead.name + " (@" + tLead.username + ")"
+    : "Direct Manager: not assigned — the site admin approves requests.";
   $("empFormNote").textContent = isAdmin
     ? "Role, passcode and schedule stay on the Team tab."
     : "Your position and hire date are kept by your admin.";
@@ -3289,7 +3430,7 @@ function reviewRequestDialog(reqId){
   var liveIn = entry ? entry.inAt : r.curIn;
   var liveOut = entry ? entry.outAt : r.curOut;
   openAct("Review request — " + u.name,
-    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + '</p>' +
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(assigneeText(r)) + '</p>' +
     '<p class="note" style="margin:0 0 14px">On file: in ' + esc(fmtClock(new Date(liveIn))) +
       (liveOut ? ", out " + esc(fmtClock(new Date(liveOut))) : ", still open") +
       (entry ? ' · ' + esc(pauseSummary(entry)) : '') + '.<br>' +
@@ -3306,8 +3447,8 @@ function reviewRequestDialog(reqId){
     [
       { label:"Decline", cls:"btn-danger", run:function(){
           var req = getReq();
-          if(!req) return "That request is no longer here.";
-          if(req.status !== "pending") return "That request has already been dealt with.";
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
           var who = currentUser();
           var ent = findEntry(req.entryId);
           req.status = "declined"; req.resolvedAt = new Date().toISOString();
@@ -3320,8 +3461,8 @@ function reviewRequestDialog(reqId){
         } }
     ].concat(entry ? [{ label:"Approve", cls:"btn-in", run:function(body){
           var req = getReq();
-          if(!req) return "That request is no longer here.";
-          if(req.status !== "pending") return "That request has already been dealt with.";
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
           var ent = findEntry(req.entryId);
           if(!ent) return "That shift no longer exists — only Decline is available.";
           var inStr = body.querySelector("#revIn").value.trim();
@@ -3366,7 +3507,7 @@ function reviewOutageRequestDialog(reqId){
   var defOut = wins.length ? fmtHM(wins[wins.length - 1].end) : "";
   var hasShift = entriesFor(r.userId).some(function(e){ return e.date === r.date; });
   openAct("Outage report — " + u.name,
-    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + '</p>' +
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' · ' + esc(assigneeText(r)) + '</p>' +
     '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "") + '”</p>' +
     '<p class="note" style="margin:0 0 14px">Scheduled that day: <strong>' +
       (sched ? esc(fmtRange(sched)) : "no schedule on file") + '</strong>. ' +
@@ -3379,8 +3520,8 @@ function reviewOutageRequestDialog(reqId){
     [
       { label:"Decline", cls:"btn-danger", run:function(){
           var req = getReq();
-          if(!req) return "That report is no longer here.";
-          if(req.status !== "pending") return "That report has already been dealt with.";
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
           var who = currentUser();
           req.status = "declined"; req.resolvedAt = new Date().toISOString();
           req.resolvedBy = who ? who.username : ""; req.seen = false;
@@ -3392,8 +3533,8 @@ function reviewOutageRequestDialog(reqId){
         } }
     ].concat(hasShift ? [] : [{ label:"Approve credit", cls:"btn-in", run:function(body){
           var req = getReq();
-          if(!req) return "That report is no longer here.";
-          if(req.status !== "pending") return "That report has already been dealt with.";
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
           if(entriesFor(req.userId).some(function(e){ return e.date === req.date; })) {
             return userOf(req.userId).name + " already has a shift on " + fmtShortDate(req.date) + " — decline this and edit that shift instead.";
           }
@@ -3424,7 +3565,7 @@ function reviewSchedRequestDialog(reqId){
   var u = userOf(r.userId);
   var me = currentUser();
   openAct("Schedule request — " + u.name,
-    '<p class="note" style="margin:0 0 6px">On file now' + (r.curFrom ? " · from " + esc(fmtShortDate(r.curFrom)) : "") + '</p>' +
+    '<p class="note" style="margin:0 0 6px">On file now' + (r.curFrom ? " · from " + esc(fmtShortDate(r.curFrom)) : "") + ' · ' + esc(assigneeText(r)) + '</p>' +
     '<p style="margin:0 0 14px">' + schedSummary({ sched: r.curSched || null }, r.curFrom || "") + '</p>' +
     '<p class="note" style="margin:0 0 6px">Requested' + (r.from ? " · effective " + esc(fmtShortDate(r.from)) : "") + '</p>' +
     '<p style="margin:0 0 14px">' + schedSummary({ sched: r.sched || null }, r.from || "") + '</p>' +
@@ -3435,8 +3576,8 @@ function reviewSchedRequestDialog(reqId){
     [
       { label:"Decline", cls:"btn-danger", run:function(){
           var req = getReq();
-          if(!req) return "That request is no longer here.";
-          if(req.status !== "pending") return "That request has already been dealt with.";
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
           var who = currentUser();
           var target = userOf(req.userId);
           req.status = "declined"; req.resolvedAt = new Date().toISOString();
@@ -3448,8 +3589,8 @@ function reviewSchedRequestDialog(reqId){
         } },
       { label:"Approve", cls:"btn-in", run:function(){
           var req = getReq();
-          if(!req) return "That request is no longer here.";
-          if(req.status !== "pending") return "That request has already been dealt with.";
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
           var target = state.users.filter(function(x){ return x.id === req.userId; })[0];
           if(!target) return "That person is no longer on the list.";
           var who = currentUser();
@@ -4339,7 +4480,37 @@ $("teamBody").addEventListener("click", function(ev){
   var t = ev.target;
   if(!t.getAttribute) return;
   var rid = t.getAttribute("data-reset"), tid = t.getAttribute("data-toggle"), sid = t.getAttribute("data-sched"),
-      roid = t.getAttribute("data-role"), did = t.getAttribute("data-del");
+      roid = t.getAttribute("data-role"), did = t.getAttribute("data-del"), lid = t.getAttribute("data-lead");
+  if(lid){
+    var lu = state.users.filter(function(x){ return x.id === lid; })[0];
+    var ad = currentUser();
+    if(!lu || !ad || ad.role !== "admin" || lu.id === ad.id) return;
+    var cands = state.users.filter(function(x){
+      return x.active !== false && x.id !== lu.id && (x.role === "lead" || x.role === "admin");
+    }).sort(function(a, b){ return a.name < b.name ? -1 : 1; });
+    openAct("Set team lead for " + lu.name,
+      '<label class="field"><span>Team lead</span><select id="leadPick">' +
+      '<option value="">No lead — the site admin approves</option>' +
+      cands.map(function(x){
+        return '<option value="' + esc(x.id) + '"' + (lu.leadId === x.id ? " selected" : "") + ">" +
+          esc(x.name) + " (@" + esc(x.username) + ", " + x.role + ")</option>";
+      }).join("") + "</select></label>" +
+      '<p class="note" style="margin:0">Their requests go to this person first, and to the site admin if a day passes with no decision.</p>',
+      [
+        { label:"Cancel", cls:"btn-quiet", close:true },
+        { label:"Save", cls:"btn-in", run:function(body){
+            var v = body.querySelector("#leadPick").value;
+            var rec = state.users.filter(function(x){ return x.id === lid; })[0];
+            if(!rec) return "That person is gone.";
+            rec.leadId = v;
+            save(); render();
+            var ln = v ? userOf(v).name : "nobody";
+            toast(rec.name + " now reports to " + (v ? ln : "the site admin") + ".");
+            return null;
+          } }
+      ]);
+    return;
+  }
   if(did){
     var du = state.users.filter(function(x){ return x.id === did; })[0];
     if(!du) return;
@@ -4378,20 +4549,26 @@ $("teamBody").addEventListener("click", function(ev){
   if(roid){
     var ru = state.users.filter(function(x){ return x.id === roid; })[0];
     if(!ru) return;
-    var toAdmin = ru.role !== "admin";
-    confirmAsk(toAdmin ? "Make " + ru.name + " an admin?" : "Take admin away from " + ru.name + "?",
-      toAdmin
-        ? ru.name + " will be able to see everyone's timesheet, add and edit people, reset passcodes and approve requests — the same as you."
-        : ru.name + " keeps their own timesheet and requests, but won't be able to manage people, passcodes or approvals.",
-      toAdmin ? "Make admin" : "Make staff").then(function(yes){
+    var next = ru.role === "staff" ? "lead" : ru.role === "lead" ? "admin" : "staff";
+    var copy = {
+      lead: ["Make " + ru.name + " a team lead?",
+             ru.name + " will show up as a team lead and can be assigned to approve people's requests.",
+             "Make lead", "is now a team lead", "is still staff"],
+      admin: ["Make " + ru.name + " an admin?",
+              ru.name + " will be able to see everyone's timesheet, add and edit people, reset passcodes and approve requests — the same as you.",
+              "Make admin", "is now an admin", "is still " + (ru.role === "lead" ? "a team lead" : "staff")],
+      staff: ["Take admin away from " + ru.name + "?",
+              ru.name + " keeps their own timesheet and requests, but won't be able to manage people, passcodes or approvals.",
+              "Make staff", "is now staff", "is still an admin"]
+    }[next];
+    confirmAsk(copy[0], copy[1], copy[2]).then(function(yes){
       if(!yes) return;
-      ru.role = toAdmin ? "admin" : "staff";
+      ru.role = next;
       save().then(function(ok){
         render();
-        if(ok){ toast(ru.name + (toAdmin ? " is now an admin" : " is now staff") +
-                      " — logged as @" + currentUser().username + "."); return; }
+        if(ok){ toast(ru.name + " " + copy[3] + " — logged as @" + currentUser().username + "."); return; }
         if(!failed) return; /* the server said why and rolled it back */
-        toast("Not saved yet — " + ru.name + " is still " + (toAdmin ? "staff" : "an admin") +
+        toast("Not saved yet — " + ru.name + " " + copy[4] +
               ". Keep this tab open; it retries by itself.");
       });
     });

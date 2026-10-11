@@ -153,6 +153,15 @@ var Demo = (function () {
     }
     return true;
   }
+  /* A team lead may act on people assigned to them - anyone whose leadId points
+     at them - short of account lifecycle and settings. Anything else stays admin. */
+  function leadFor(db, me, userId) {
+    if (!me || me.role !== "lead" || me.active === false) return false;
+    if (typeof userId !== "string" || !userId || userId === me.id) return false;
+    var list = asList(db.users), tu = null;
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === userId) { tu = list[i]; break; }
+    return !!tu && tu.role !== "admin" && tu.leadId === me.id;
+  }
   function putItem(db, coll, item, self, isAdmin) {
     if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id) {
       var e400 = new Error("That change was missing an id."); e400.status = 400; throw e400;
@@ -164,16 +173,30 @@ var Demo = (function () {
     function deny(status, msg) { var e = new Error(msg); e.status = status; throw e; }
 
     if (coll === "users") {
-      /* Accounts and passcodes are an admin's job - with one exception: people
-         may update their own employee information (name and contact details).
-         Position and hire date stay admin-only, as do username, role, active
-         state, passcode and schedule. */
+      /* Accounts and passcodes are an admin's job - with two exceptions: people
+         may update their own employee information, and team leads may rewrite
+         their reports' schedules. Everything account-shaped stays admin-only. */
       if (!isAdmin) {
         var SELF_INFO = ["name", "firstName", "middleName", "lastName", "birthdate", "photo",
           "phone", "address", "emergency", "notes"];
-        if (!existing || item.id !== self.id || existing.id !== self.id) {
-          deny(403, "You can only change your own information.");
-        }
+        var ownRec = !!existing && item.id === self.id && existing.id === self.id;
+        var leadRec = !ownRec && !!existing && leadFor(db, self, item.id);
+        if (!ownRec && !leadRec) deny(403, "You can only change your own information.");
+        if (leadRec) {
+          var SCHED_KEYS = ["sched", "schedules"];
+          var touchedL = Object.keys(item), tl;
+          for (tl = 0; tl < touchedL.length; tl++) {
+            var kl = touchedL[tl];
+            if (kl === "id" || SCHED_KEYS.indexOf(kl) >= 0) continue;
+            var al = item[kl], bl = existing[kl];
+            var sameL = al === bl || (al && bl && typeof al === "object" && typeof bl === "object" &&
+              JSON.stringify(al) === JSON.stringify(bl));
+            if (!sameL) deny(403, "Only an admin can change that.");
+          }
+          stored = {};
+          Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
+          SCHED_KEYS.forEach(function (k) { if (item[k] !== undefined) stored[k] = item[k]; });
+        } else {
         /* The page saves whole records, so untouched fields (role, schedule,
            passcode hash) ride along: only an actual change to a protected
            field is refused. */
@@ -195,12 +218,14 @@ var Demo = (function () {
           if (stored.name.trim().length < 2) deny(400, "Enter the name that should appear on the timesheet.");
           stored.name = stored.name.trim();
         }
+        }
       } else {
         stored = {};
         if (existing) Object.keys(existing).forEach(function (k) { stored[k] = existing[k]; });
         Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
         if (typeof stored.username === "string") stored.username = stored.username.trim().toLowerCase();
-        stored.role = stored.role === "admin" ? "admin" : "staff";
+        /* admin, lead and staff all survive a save - anything else becomes staff */
+        stored.role = stored.role === "admin" ? "admin" : stored.role === "lead" ? "lead" : "staff";
         stored.active = stored.active !== false;
         if (existing && existing.role === "admin" && existing.active !== false) {
           var stillAdmin = (stored.role === "admin") && (stored.active !== false);
@@ -213,8 +238,10 @@ var Demo = (function () {
       if (typeof item.userId !== "string" || typeof item.inAt !== "string") {
         deny(400, "That shift wasn't in a format this server understands.");
       }
-      if (!isAdmin && item.userId !== self.id) deny(403, "You can only change your own shifts.");
-      if (!isAdmin) {
+      if (!isAdmin && item.userId !== self.id && !leadFor(db, self, item.userId)) {
+        deny(403, "You can only change your own shifts.");
+      }
+      if (!isAdmin && !leadFor(db, self, item.userId)) {
         var editMsg = "That shift is already recorded. Send a correction request for an admin to approve.";
         if (existing) {
           if (String(item.inAt) !== String(existing.inAt)) deny(403, editMsg);
@@ -228,8 +255,23 @@ var Demo = (function () {
       if (Array.isArray(stored.audit) && stored.audit.length > MAX_ENTRY_AUDIT) stored.audit = stored.audit.slice(-MAX_ENTRY_AUDIT);
     } else {
       if (typeof item.userId !== "string") deny(400, "That request wasn't in a format this server understands.");
-      if (!isAdmin) {
-        if (item.userId !== self.id) deny(403, "You can only change your own requests.");
+      /* Who may decide: an admin, or the reporter's team lead inside the first
+         24 hours - after that it is the site admin's call. Everyone else keeps
+         the original rules: your own requests, pending only, read receipts. */
+      var reporterId = existing ? existing.userId : item.userId;
+      var mine = reporterId === self.id;
+      var decide = false;
+      if (!isAdmin && !mine) {
+        if (!existing) deny(403, "You can only change your own requests.");
+        if (leadFor(db, self, reporterId)) {
+          var createdAt = new Date(existing.createdAt || 0).getTime();
+          if (Date.now() - createdAt < 24 * 3600 * 1000) decide = true;
+          else deny(403, "Only the site admin can decide this now — it escalated after 24 hours.");
+        } else {
+          deny(403, "Only an admin can approve or decline a request.");
+        }
+      }
+      if (!isAdmin && !decide) {
         var sameOutcome = existing &&
           String(item.status || "") === String(existing.status || "") &&
           String(item.resolvedBy || "") === String(existing.resolvedBy || "") &&
@@ -239,6 +281,18 @@ var Demo = (function () {
         } else if ((item.status && item.status !== "pending") || item.resolvedBy) {
           deny(403, "Only an admin can approve or decline a request.");
         }
+      }
+      if (decide) {
+        /* a team lead's decision touches the decision fields only */
+        var allowed = ["status", "resolvedBy", "resolvedAt", "seen"], okKeys = true;
+        var keys = Object.keys(item);
+        for (var q = 0; q < keys.length; q++) {
+          var k = keys[q];
+          if (k === "id" || allowed.indexOf(k) >= 0) continue;
+          var a = item[k], b = existing[k];
+          if (!(a === b || (a && b && typeof a === "object" && typeof b === "object" && JSON.stringify(a) === JSON.stringify(b)))) { okKeys = false; break; }
+        }
+        if (!okKeys) deny(403, "Only an admin can change that.");
       }
       stored = {};
       Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
@@ -276,12 +330,29 @@ var Demo = (function () {
       asList(c.del).forEach(function (d) { delItem(db, coll, d && d.id, self, isAdmin); });
     });
     if (patch.settings !== undefined && patch.settings !== null) {
-      if (!isAdmin) { var e = new Error("Only an admin can change settings."); e.status = 403; throw e; }
-      if (typeof patch.settings !== "object" || Array.isArray(patch.settings)) bad();
-      var next = {};
-      Object.keys(patch.settings).forEach(function (k) { next[k] = patch.settings[k]; });
-      if (Array.isArray(next.audit) && next.audit.length > MAX_AUDIT) next.audit = next.audit.slice(-MAX_AUDIT);
-      db.settings = next;
+      if (!isAdmin) {
+        /* a team lead deciding reports only ever appends to the change history */
+        if (!self || self.role !== "lead" || self.active === false) { var e = new Error("Only an admin can change settings."); e.status = 403; throw e; }
+        var so = (db.settings && typeof db.settings === "object") ? db.settings : {};
+        var skeys = Object.keys(patch.settings), auditOnly = true;
+        for (var q2 = 0; q2 < skeys.length; q2++) {
+          var k2 = skeys[q2];
+          if (k2 === "audit") continue;
+          var pa = patch.settings[k2], oa = so[k2];
+          if (!(pa === oa || (pa && oa && typeof pa === "object" && typeof oa === "object" && JSON.stringify(pa) === JSON.stringify(oa)))) { auditOnly = false; break; }
+        }
+        if (!auditOnly || !Array.isArray(patch.settings.audit)) { var e2 = new Error("Only an admin can change settings."); e2.status = 403; throw e2; }
+        var merged = {};
+        Object.keys(so).forEach(function (k3) { merged[k3] = so[k3]; });
+        merged.audit = patch.settings.audit.slice(-MAX_AUDIT);
+        db.settings = merged;
+      } else {
+        if (typeof patch.settings !== "object" || Array.isArray(patch.settings)) bad();
+        var next = {};
+        Object.keys(patch.settings).forEach(function (k) { next[k] = patch.settings[k]; });
+        if (Array.isArray(next.audit) && next.audit.length > MAX_AUDIT) next.audit = next.audit.slice(-MAX_AUDIT);
+        db.settings = next;
+      }
     }
   }
 

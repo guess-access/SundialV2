@@ -226,6 +226,17 @@ server compares against what is on file, so sending a whole record back never
 smuggles a promotion, and adding accounts stays admin-only. Photos upload
 from the device and shrink to a 256px JPEG before saving.
 
+**Team leads.** An admin promotes staff to `lead` and assigns each person a
+lead on the Team tab (new Team Lead column). Every request then names its
+first approver: the reporter's lead inside the first 24 hours, the site
+admin after that — or from the start when nobody is assigned. Leads see the
+Team tab with only their routed requests, and approve or decline them with
+the same entry-writing power as the flow needs (corrections, outage credits,
+schedules), every decision signed in the change history. Account lifecycle
+(usernames, roles, passcodes, on/off, deletes) and settings stay admin-only,
+and the server refuses anything wider with the same messages on both
+backends. Each person sees their Direct Manager on the My Info tab.
+
 **Outages.** A worker with no power or no internet can't clock in, so there is
 no shift to correct — instead they file an **outage report** from the Clock tab
 (day, what was out, what happened). It lands in the Team queue like any other
