@@ -1488,6 +1488,10 @@ function syncNow(){
     runP = null;
     if(again){ again = false; return syncNow(); }
     return ok;
+  }, function(){
+    /* a render blew up mid-sync: free the queue so the next save still runs */
+    runP = null;
+    return false;
   });
   return runP;
 }
@@ -2660,7 +2664,6 @@ function renderEmployees(){
     : "Your details, exactly as payroll sees them. Tell your admin about a new position or hire date.";
   $("empFormTitle").textContent = isAdmin ? "Employee information" : "My details";
   $("empFormWho").textContent = "@" + t.username;
-  $("empProfileAva").innerHTML = empAvatar(t, "pro-ava");
   $("empProfileName").textContent = t.name;
   $("empProfileMeta").textContent = "@" + t.username +
     (t.position ? " · " + t.position : "") +
