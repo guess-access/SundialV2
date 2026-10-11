@@ -259,7 +259,8 @@ every day shows the rostered span against hours actually worked, tinted by
 the day's status, with an **Attendance summary** underneath (scheduled and
 worked hours, days, absents, lates). Staff see only their own row; admins see
 everyone plus the per-row **Schedule** button that edits a weekly pattern,
-and the matrix refreshes on save. On staff screens the month renders as a
+and the matrix refreshes on save. Staff see the tab as **Attendance**, with
+their own row only (or their own month calendar). On staff screens the month renders as a
 Sunday-start calendar grid instead of the row, with each day filled by its
 status — green present, yellow late, red absent — and a filled legend
 underneath.

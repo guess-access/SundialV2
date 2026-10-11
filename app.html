@@ -668,7 +668,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
     <div id="vSchedules" class="hidden">
       <div class="emp-head">
         <p class="emp-kicker">Roster</p>
-        <h2>Schedules</h2>
+        <h2 id="schTitle">Schedules</h2>
         <p id="schLede">Every rostered day of the month, with hours worked against it. Pick a name to change their weekly pattern.</p>
       </div>
       <div class="panel block" style="margin-bottom:16px">
@@ -2358,6 +2358,7 @@ function render(){
   show($("btnSchedReq"), u.role !== "admin"); // staff ask for schedule changes, the admin approves them
   show($("btnOutageReq"), u.role !== "admin"); // same for power and internet outages
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
+  document.querySelector('.tab[data-view="schedules"]').textContent = u.role === "admin" ? "Schedules" : "Attendance";
   if(u.role !== "admin" && view === "team") setView("clock");
 
   show($("fPerson"), u.role === "admin");
@@ -2997,6 +2998,7 @@ function renderSchedules(){
   var label = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
   $("schLabel").textContent = label;
   $("schSummLabel").textContent = label;
+  $("schTitle").textContent = isAdmin ? "Schedules" : "Attendance";
   var hr = $("schHeadRow"); hr.innerHTML = "<th>Person</th>";
   for(var d = 1; d <= n; d++){
     var wd = new Date(y, m - 1, d).getDay();
