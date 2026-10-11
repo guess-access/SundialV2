@@ -213,7 +213,6 @@ editing and deleting shifts for other people. Anyone else may only clock their o
 and file requests; the server refuses a staff passcode change, a rewrite of an already
 recorded shift, a deleted shift, a change to somebody else's record, and approving their own
 request — and nobody can switch off the last admin.
-
 The one exception is employee information: people may update their **own** profile
 name (first, middle, last), birthday, photo, phone, address, emergency contact
 and notes, all from the My Info tab. Age and tenure compute themselves from the
@@ -222,6 +221,15 @@ admin-only, as do username, role, active state, passcode and schedule — the
 server compares against what is on file, so sending a whole record back never
 smuggles a promotion, and adding accounts stays admin-only. Photos upload
 from the device and shrink to a 256px JPEG before saving.
+
+**Outages.** A worker with no power or no internet can't clock in, so there is
+no shift to correct — instead they file an **outage report** from the Clock tab
+(day, what was out, what happened). It lands in the Team queue like any other
+request. Approving writes a full shift for the admin's chosen hours, prefilled
+from that day's schedule, and signs it in the change history; the day then
+pays like any worked day. If the person already has a shift that day, approval
+is blocked and the admin declines and edits the shift instead — so an outage
+can never double-pay a day.
 
 Admins can also pull a whole roster at once: **Import from EE-DATA** (My Info,
 beside the add-user form) reads the link-shared Google Sheet tab of that name

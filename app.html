@@ -539,6 +539,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <p class="hero-date" id="payLine" style="text-align:left;margin-top:2px"></p>
           <div style="margin-top:9px">
             <button class="btn btn-quiet hidden" id="btnSchedReq" type="button" style="padding:7px 13px;font-size:.85rem">Request schedule change</button>
+            <button class="btn btn-quiet hidden" id="btnOutageReq" type="button" style="padding:7px 13px;font-size:.85rem;margin-top:8px">Report power / internet outage</button>
           </div>
           <div style="margin-top:18px">
             <span class="chip chip-off" id="chip"><i class="dot"></i><span id="chipText">Off the clock</span></span>
@@ -2263,6 +2264,7 @@ function render(){
   show($("sPng"), u.role === "admin");     // and only an admin saves the sheet as a picture
   show($("sAdd"), u.role === "admin");     // the admin adds shifts for other people too
   show($("btnSchedReq"), u.role !== "admin"); // staff ask for schedule changes, the admin approves them
+  show($("btnOutageReq"), u.role !== "admin"); // same for power and internet outages
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
   if(u.role !== "admin" && view === "team") setView("clock");
 
@@ -2461,11 +2463,14 @@ function renderTeam(){
   pending.forEach(function(r){
     var u = userOf(r.userId);
     var isSched = r.kind === "schedule";
+    var isOutage = r.kind === "outage";
     var li = document.createElement("li");
     li.innerHTML = '<span class="p-when readout"' + (isSched ? ' style="width:7.6em"' : "") + '>' +
-      (isSched ? "Schedule" : esc(fmtShortDate(r.date))) + '</span>' +
+      (isSched ? "Schedule" : isOutage ? "Outage" : esc(fmtShortDate(r.date))) + '</span>' +
       '<span class="p-what">' + (isSched
         ? esc(u.name) + ' wants a new schedule'
+        : isOutage
+        ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
         : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
           ((r.reqPauses || []).length ? " · break times" : "")) + '</span>' +
       '<button class="btn btn-quiet" data-review="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Review</button>';
@@ -2961,6 +2966,7 @@ function auditHtml(r){
     : r.action === "schedule"      ? "Updated a schedule"
     : r.action === "sched-approve" ? "Approved a schedule change"
     : r.action === "sched-decline" ? "Declined a schedule change"
+    : r.action === "outage" ? "Approved an outage credit"
     : "Edited a shift";
   var detail = (r.changes || []).length ? " — " + r.changes.join("; ") : "";
   return { who:who, what:what, detail:detail };
@@ -3037,6 +3043,7 @@ function reviewRequestDialog(reqId){
   var r = getReq();
   if(!r) return;
   if(r.kind === "schedule") return reviewSchedRequestDialog(reqId);
+  if(r.kind === "outage") return reviewOutageRequestDialog(reqId);
 
   var u = userOf(r.userId);
   var entry = findEntry(r.entryId);
@@ -3103,6 +3110,72 @@ function reviewRequestDialog(reqId){
           toast("Request approved and applied — logged as @" + (who ? who.username : "admin") + ".");
           return null;
         } }] : []));
+}
+/* An outage report: no shift exists, so approving WRITES one - prefilled with
+   that day's scheduled hours. Declining only logs, like any other refusal. */
+function outageLabel(kind){
+  return kind === "both" ? "No power and no internet" : kind === "internet" ? "No internet" : "No power";
+}
+function reviewOutageRequestDialog(reqId){
+  function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
+  var r = getReq();
+  if(!r) return;
+  var u = userOf(r.userId);
+  var me = currentUser();
+  var sched = schedOf(u, r.date);
+  var wins = sched ? schedWindows(sched) : [];
+  var defIn = wins.length ? fmtHM(wins[0].start) : "";
+  var defOut = wins.length ? fmtHM(wins[wins.length - 1].end) : "";
+  var hasShift = entriesFor(r.userId).some(function(e){ return e.date === r.date; });
+  openAct("Outage report — " + u.name,
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + '</p>' +
+    '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "") + '”</p>' +
+    '<p class="note" style="margin:0 0 14px">Scheduled that day: <strong>' +
+      (sched ? esc(fmtRange(sched)) : "no schedule on file") + '</strong>. ' +
+      'Approving writes a shift for the hours below and signs it as @' +
+      esc(me ? me.username : "") + '.</p>' +
+    (hasShift ? '<p class="err">' + esc(u.name) + ' already has a shift on ' +
+      esc(fmtShortDate(r.date)) + ' — decline this and edit that shift instead.</p>' : '') +
+    '<label class="field"><span>Approve with clock-in (EST)</span><input id="outIn" value="' + esc(defIn) + '"></label>' +
+    '<label class="field"><span>Approve with clock-out (EST)</span><input id="outOut" value="' + esc(defOut) + '"></label>',
+    [
+      { label:"Decline", cls:"btn-danger", run:function(){
+          var req = getReq();
+          if(!req) return "That report is no longer here.";
+          if(req.status !== "pending") return "That report has already been dealt with.";
+          var who = currentUser();
+          req.status = "declined"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          logEdit(null, "decline", ["declined @" + userOf(req.userId).username + "'s outage report for " +
+            fmtShortDate(req.date) + (req.note ? " — " + req.note : "")],
+            { userId:req.userId, date:req.date, person:userOf(req.userId).name });
+          save(); render(); toast("Outage report declined — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } }
+    ].concat(hasShift ? [] : [{ label:"Approve credit", cls:"btn-in", run:function(body){
+          var req = getReq();
+          if(!req) return "That report is no longer here.";
+          if(req.status !== "pending") return "That report has already been dealt with.";
+          if(entriesFor(req.userId).some(function(e){ return e.date === req.date; })) {
+            return userOf(req.userId).name + " already has a shift on " + fmtShortDate(req.date) + " — decline this and edit that shift instead.";
+          }
+          var inStr = body.querySelector("#outIn").value.trim();
+          var outStr = body.querySelector("#outOut").value.trim();
+          if(parseTime(inStr) === null) return "Enter the clock-in time like 9:05 AM.";
+          if(parseTime(outStr) === null) return "Enter the clock-out time — an outage credit is a complete day.";
+          var entry = { id: nextId("e"), userId: req.userId, date: req.date, inAt: null, outAt: null, pauses: [] };
+          var err = applyEditedTimes(entry, req.date, inStr, outStr);
+          if(err) return err;
+          state.entries.push(entry);
+          var who = currentUser();
+          logEdit(entry, "outage", ["credited " + fmtShortDate(req.date) + " " + describeShift(entry) +
+            " (" + outageLabel(req.outage).toLowerCase() + ")"]);
+          req.status = "approved"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          save(); render();
+          toast("Outage credited — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } }]));
 }
 /* A request to change a schedule: the admin reads it side by side and then
    approves or declines, and whichever they do is written into the history. */
@@ -3750,6 +3823,39 @@ $("sAdd").addEventListener("click", function(){
           logEdit(entry, "add", ["added " + fmtShortDate(dateKey) + " " + describeShift(entry)]);
           save(); render();
           toast("Shift added for " + t.name + " — logged as @" + (currentUser() ? currentUser().username : "admin") + ".");
+          return null;
+        } }
+    ]);
+});
+
+/* staff report a day lost to power or internet from the clock screen - there is
+   no shift to correct, which is exactly why the correction flow can't take it */
+$("btnOutageReq").addEventListener("click", function(){
+  var u = currentUser();
+  if(!u) return;
+  openAct("Report power / internet outage",
+    '<label class="field"><span>Day without power or internet (EST)</span><input type="date" id="outDate" value="' + dayKey(new Date()) + '"></label>' +
+    '<label class="field"><span>What was out?</span><select id="outKind"><option value="power">No power</option><option value="internet">No internet</option><option value="both">No power and no internet</option></select></label>' +
+    '<label class="field"><span>What happened?</span><textarea id="outNote" rows="3" placeholder="e.g. brownout 9 AM to 3 PM, could not clock in"></textarea></label>' +
+    '<p class="note" style="margin:0">An admin reviews this before anything changes — approving writes the day onto your timesheet.</p>',
+    [
+      { label:"Cancel", cls:"btn-quiet", close:true },
+      { label:"Submit report", cls:"btn-in", run:function(body){
+          var dateKey = body.querySelector("#outDate").value;
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return "Pick the day this happened.";
+          var kind = body.querySelector("#outKind").value;
+          if(kind !== "power" && kind !== "internet" && kind !== "both") return "Pick what was out.";
+          var note = body.querySelector("#outNote").value.trim();
+          if(note.length < 3) return "Add a short note about what happened.";
+          var dup = state.requests.some(function(r){ return r.userId === u.id && r.kind === "outage" && r.date === dateKey && r.status === "pending"; });
+          if(dup) return "There's already a pending outage report for that day.";
+          state.requests.push({
+            id: nextId("r"), userId: u.id, date: dateKey, kind: "outage",
+            outage: kind, note: note, status: "pending", createdAt: new Date().toISOString(),
+            resolvedAt: null, resolvedBy: "", seen: true
+          });
+          save(); render();
+          toast("Outage reported — an admin reviews it before anything changes.");
           return null;
         } }
     ]);
