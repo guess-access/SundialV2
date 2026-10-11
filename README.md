@@ -257,9 +257,9 @@ import ignores it — worth cleaning at the source.)
 The **Schedules** tab lays the whole calendar month out per person:
 every day shows the rostered span against hours actually worked, tinted by
 the day's status, with an **Attendance summary** underneath (scheduled and
-worked hours, days, absents, lates). Everyone can open it; only admins get
-the per-row **Schedule** button that edits a weekly pattern, and the matrix
-refreshes on save.
+worked hours, days, absents, lates). Staff see only their own row; admins see
+everyone plus the per-row **Schedule** button that edits a weekly pattern,
+and the matrix refreshes on save.
 
 ## Demo mode (no backend)
 

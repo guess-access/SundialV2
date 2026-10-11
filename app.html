@@ -2977,7 +2977,12 @@ function renderSchedules(){
   var body = $("schBody"); body.innerHTML = "";
   var summ = $("schSummBody"); summ.innerHTML = "";
   var nowMs = Date.now();
+  /* staff see only their own row; admins see the whole roster */
+  $("schLede").textContent = isAdmin
+    ? "Every rostered day of the month, with hours worked against it."
+    : "Your rostered days for the month, with hours worked against them.";
   var people = state.users.filter(function(x){ return x.active !== false; });
+  if(!isAdmin) people = people.filter(function(x){ return x.id === u.id; });
   people.forEach(function(x){
     var cells = "<td>" + esc(x.name) + "</td>";
     var schedMs = 0, workMs = 0, days = 0, absent = 0, late = 0;
