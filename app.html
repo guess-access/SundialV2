@@ -411,11 +411,11 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .emp-profile__meta{color:var(--muted);font-size:.9rem;margin-top:2px}
 .pro-ava{width:64px;height:64px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
 .pro-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:1.6rem;color:var(--muted)}
+/* the avatar doubles as the upload control */
+.pro-ava-wrap{position:relative;display:inline-block;flex:none;border-radius:50%;cursor:pointer}
+.pro-ava-file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.pro-ava-badge{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--line);color:var(--muted);font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 9px;border-radius:999px;white-space:nowrap}
 .emp-label span:last-child{color:var(--signal)}
-.emp-photo-row{display:flex;align-items:center;gap:14px}
-.emp-photo{width:72px;height:72px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
-.emp-photo--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:1.4rem;color:var(--muted)}
-#empPhoto,#empAddPhoto{color:var(--muted);font-size:.88rem;max-width:100%}
 .emp-computed{display:block;margin-top:5px;font-size:.82rem;color:var(--muted)}
 .emp-ava{width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:-9px;margin-right:9px;background:var(--panel-2);border:1px solid var(--line-soft)}
 .emp-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:.8rem;color:var(--muted)}
@@ -646,7 +646,12 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <div class="panel block" style="margin-bottom:16px">
         <div class="emp-label"><span id="empFormTitle">Employee information</span><span id="empFormWho"></span></div>
         <div class="emp-profile">
-          <span id="empProfileAva"></span>
+          <label class="pro-ava-wrap" title="Upload a profile photo">
+            <img class="pro-ava" id="empPhotoPrev" alt="Profile photo">
+            <span class="pro-ava pro-ava--init" id="empPhotoInit">?</span>
+            <input type="file" id="empPhoto" class="pro-ava-file" accept="image/*" aria-label="Upload profile photo">
+            <span class="pro-ava-badge">Change</span>
+          </label>
           <div>
             <div class="emp-profile__name" id="empProfileName"></div>
             <div class="emp-profile__meta" id="empProfileMeta"></div>
@@ -656,13 +661,6 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <label class="field"><span>Username (sign-in name, never changes)</span>
           <input type="text" id="empUser" disabled>
         </label>
-        <div class="field"><span>Profile photo</span>
-          <span class="emp-photo-row">
-            <img class="emp-photo" id="empPhotoPrev" alt="Profile photo preview">
-            <span class="emp-photo emp-photo--init" id="empPhotoInit">?</span>
-            <input type="file" id="empPhoto" accept="image/*">
-          </span>
-        </div>
         <label class="field"><span>First name</span>
           <input type="text" id="empFirst" maxlength="40" autocomplete="off">
         </label>
@@ -731,11 +729,12 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <input type="password" id="empAddPin2" maxlength="32" autocomplete="new-password">
         </label>
         <div class="field"><span>Profile photo</span>
-          <span class="emp-photo-row">
-            <img class="emp-photo" id="empAddPhotoPrev" alt="Profile photo preview">
-            <span class="emp-photo emp-photo--init" id="empAddPhotoInit">?</span>
-            <input type="file" id="empAddPhoto" accept="image/*">
-          </span>
+          <label class="pro-ava-wrap" title="Upload a profile photo">
+            <img class="pro-ava" id="empAddPhotoPrev" alt="Profile photo preview">
+            <span class="pro-ava pro-ava--init" id="empAddPhotoInit">?</span>
+            <input type="file" id="empAddPhoto" class="pro-ava-file" accept="image/*" aria-label="Upload profile photo">
+            <span class="pro-ava-badge">Upload</span>
+          </label>
         </div>
         <label class="field"><span>Birthday</span>
           <input type="date" id="empAddBirth">
