@@ -212,7 +212,11 @@ unchanged. If it finds nothing, it starts blank on a store named `sundial-timelo
 editing and deleting shifts for other people. Anyone else may only clock their own punches
 and file requests; the server refuses a staff passcode change, a rewrite of an already
 recorded shift, a deleted shift, a change to somebody else's record, and approving their own
-request — and nobody can switch off the last admin.
+request — and nobody can switch off the last admin. Deleting an account removes
+it for good (its shifts stay on file under "(removed account)"): an admin
+confirms per person on the Team tab, never their own signed-in account, never
+anyone clocked in, never anyone with a pending request, and never the last
+admin.
 The one exception is employee information: people may update their **own** profile
 name (first, middle, last), birthday, photo, phone, address, emergency contact
 and notes, all from the My Info tab. Age and tenure compute themselves from the

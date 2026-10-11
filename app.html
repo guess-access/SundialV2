@@ -1106,6 +1106,7 @@ var Demo = (function () {
     function deny(status, msg) { var e = new Error(msg); e.status = status; throw e; }
     if (coll === "users") {
       if (!isAdmin) deny(403, "Only an admin can remove people.");
+      if (existing.id === self.id) deny(403, "You can't delete the account you're signed in with.");
       if (existing.role === "admin" && existing.active !== false && !hasOtherActiveAdmin(db, existing.id)) {
         deny(403, "Add another admin before removing this one.");
       }
@@ -1412,13 +1413,17 @@ function api(method, path, body){
 }
 
 // What changed on this device since the server last confirmed the data?
+// Users are deletable too (an admin removing an account), so removals in
+// every collection travel as dels - the server refuses the ones it must.
 function makePatch(){
   var p = {}, any = false;
   ["users","entries","requests"].forEach(function(c){
     var b = base[c], put = [], del = [], seen = {};
     state[c].forEach(function(x){ seen[x.id] = 1; if(b[x.id] !== J(x)) put.push(x); });
-    if(c !== "users") Object.keys(b).forEach(function(id){
-      if(!seen[id]){ var o = JSON.parse(b[id]); del.push({ id:id, userId:o.userId }); }
+    Object.keys(b).forEach(function(id){
+      if(seen[id]) return;
+      if(c !== "users"){ var o = JSON.parse(b[id]); del.push({ id:id, userId:o.userId }); }
+      else del.push({ id:id });
     });
     if(put.length || del.length){ p[c] = { put:put, del:del }; any = true; }
   });
@@ -2509,7 +2514,9 @@ function renderTeam(){
           (u.role === "admin" ? "Make staff" : "Make admin") + "</button> ") +
         '<button class="btn btn-quiet" data-reset="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Reset passcode</button> ' +
         '<button class="btn ' + (u.active ? "btn-danger" : "btn-quiet") + '" data-toggle="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">' +
-        (u.active ? "Switch off" : "Switch on") + "</button></td>";
+        (u.active ? "Switch off" : "Switch on") + "</button> " +
+        (u.id === (currentUser() || {}).id ? "" :
+          '<button class="btn btn-danger" data-del="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>') + "</td>";
     body.appendChild(tr);
   });
   $("tSignup").value = state.settings.signup ? "on" : "off";
@@ -2966,6 +2973,7 @@ function auditHtml(r){
     : r.action === "schedule"      ? "Updated a schedule"
     : r.action === "sched-approve" ? "Approved a schedule change"
     : r.action === "sched-decline" ? "Declined a schedule change"
+    : r.action === "delete-user" ? "Removed an account"
     : r.action === "outage" ? "Approved an outage credit"
     : "Edited a shift";
   var detail = (r.changes || []).length ? " — " + r.changes.join("; ") : "";
@@ -4100,7 +4108,42 @@ $("teamBody").addEventListener("click", function(ev){
   var t = ev.target;
   if(!t.getAttribute) return;
   var rid = t.getAttribute("data-reset"), tid = t.getAttribute("data-toggle"), sid = t.getAttribute("data-sched"),
-      roid = t.getAttribute("data-role");
+      roid = t.getAttribute("data-role"), did = t.getAttribute("data-del");
+  if(did){
+    var du = state.users.filter(function(x){ return x.id === did; })[0];
+    if(!du) return;
+    var self = currentUser();
+    if(self && du.id === self.id) return;
+    var open = !!openEntry(du.id);
+    var pend = state.requests.filter(function(r){ return r.userId === du.id && r.status === "pending"; }).length;
+    confirmAsk("Delete " + du.name + "?",
+      du.name + " (@" + du.username + ") will stop signing in immediately. " +
+      "Their recorded shifts stay on file under “(removed account)”. " +
+      (open ? "They are clocked in right now — clock them out first. " : "") +
+      (pend ? "They have " + pend + " pending request" + (pend === 1 ? "" : "s") + " — resolve " + (pend === 1 ? "it" : "them") + " first. " : "") +
+      ((!open && !pend) ? "This can't be undone from here — you'd add them back as a new account." : ""),
+      "Delete " + du.name).then(function(yes){
+      if(!yes) return;
+      var target = state.users.filter(function(x){ return x.id === did; })[0];
+      if(!target) return;
+      if(openEntry(target.id)){ toast(target.name + " is clocked in — clock them out first."); return; }
+      if(state.requests.some(function(r){ return r.userId === target.id && r.status === "pending"; })){
+        toast(target.name + " has a pending request — resolve it first."); return;
+      }
+      logEdit(null, "delete-user", ["removed @" + target.username + " (" + target.name + ")"],
+        { userId: target.id, person: target.name, date: dayKey(new Date()) });
+      var goneId = target.id, goneName = target.name;
+      state.users = state.users.filter(function(x){ return x.id !== did; });
+      save().then(function(ok){
+        render();
+        var still = state.users.some(function(x){ return x.id === goneId; });
+        if(ok && !still){ toast(goneName + " deleted — logged as @" + currentUser().username + "."); return; }
+        if(!failed) return; /* the server said why and rolled it back */
+        toast("Not saved yet — " + goneName + " is still here. Keep this tab open; it retries by itself.");
+      });
+    });
+    return;
+  }
   if(roid){
     var ru = state.users.filter(function(x){ return x.id === roid; })[0];
     if(!ru) return;

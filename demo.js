@@ -254,6 +254,7 @@ var Demo = (function () {
     function deny(status, msg) { var e = new Error(msg); e.status = status; throw e; }
     if (coll === "users") {
       if (!isAdmin) deny(403, "Only an admin can remove people.");
+      if (existing.id === self.id) deny(403, "You can't delete the account you're signed in with.");
       if (existing.role === "admin" && existing.active !== false && !hasOtherActiveAdmin(db, existing.id)) {
         deny(403, "Add another admin before removing this one.");
       }
