@@ -431,6 +431,27 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sch-late{background:var(--amber-fill)}
 .sch-absent{background:var(--alert-fill)}
 .sch-open{background:var(--lunch-fill)}
+/* staff month calendar: same statuses as borders instead of a row */
+.sch-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.sch-dow{font-size:.7rem;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;letter-spacing:.06em;text-transform:uppercase}
+.sch-blank{min-height:64px}
+.sch-cell{min-height:64px;border:1px solid var(--line-soft);border-radius:10px;padding:6px 8px;background:var(--inset)}
+.sch-cell b{display:block;font-size:.9rem;font-weight:700}
+.sch-cell span{display:block;font-size:.7rem;color:var(--muted)}
+.sch-b-present,.sch-b-late,.sch-b-absent{border-width:2px}
+.sch-b-present{border-color:var(--signal)}
+.sch-b-late{border-color:var(--amber)}
+.sch-b-absent{border-color:var(--alert)}
+.sch-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.82rem;color:var(--muted)}
+.sch-legend i{display:inline-block;width:11px;height:11px;border-radius:4px;border:2px solid;margin-right:7px;vertical-align:-1px}
+.sch-lg-present{border-color:var(--signal)}
+.sch-lg-late{border-color:var(--amber)}
+.sch-lg-absent{border-color:var(--alert)}
+@media(max-width:560px){
+  .sch-cal{gap:5px}
+  .sch-cell{min-height:52px;padding:4px 5px}
+  .sch-cell span{font-size:.62rem}
+}
 .emp-computed{display:block;margin-top:5px;font-size:.82rem;color:var(--muted)}
 .emp-ava{width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:-9px;margin-right:9px;background:var(--panel-2);border:1px solid var(--line-soft)}
 .emp-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:.8rem;color:var(--muted)}
@@ -658,10 +679,18 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <button class="btn btn-quiet" id="schNext" type="button" style="padding:7px 13px;font-size:.85rem">Next →</button>
         </div>
         <div class="scroller">
-          <table class="sch-grid">
+          <table class="sch-grid" id="schGrid">
             <thead><tr id="schHeadRow"></tr></thead>
             <tbody id="schBody"></tbody>
           </table>
+          <div id="schCalWrap" class="hidden">
+            <div class="sch-cal" id="schCal"></div>
+            <div class="sch-legend">
+              <span><i class="sch-lg-present"></i>Present</span>
+              <span><i class="sch-lg-late"></i>Late</span>
+              <span><i class="sch-lg-absent"></i>Absent</span>
+            </div>
+          </div>
         </div>
       </div>
       <div class="panel block" style="margin-bottom:16px">
@@ -2983,6 +3012,9 @@ function renderSchedules(){
     : "Your rostered days for the month, with hours worked against them.";
   var people = state.users.filter(function(x){ return x.active !== false; });
   if(!isAdmin) people = people.filter(function(x){ return x.id === u.id; });
+  show($("schGrid"), isAdmin);
+  show($("schCalWrap"), !isAdmin);
+  if(!isAdmin && people.length) renderStaffCal(people[0], y, m, n, nowMs);
   people.forEach(function(x){
     var cells = "<td>" + esc(x.name) + "</td>";
     var schedMs = 0, workMs = 0, days = 0, absent = 0, late = 0;
@@ -3019,6 +3051,33 @@ function renderSchedules(){
       '<td style="text-align:right;white-space:nowrap">' + (isAdmin ? '<button class="btn btn-quiet" data-sched="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button>' : "") + "</td>";
     summ.appendChild(tr2);
   });
+}
+/* Staff month calendar: their own days as a Sunday-start grid, status carried
+   by the border - green present, yellow late, red absent. */
+function renderStaffCal(x, y, m, n, nowMs){
+  var el = $("schCal");
+  var html = "";
+  DAY_NAMES.forEach(function(d){ html += '<div class="sch-dow">' + d + "</div>"; });
+  var firstWd = new Date(y, m - 1, 1).getDay();
+  for(var b = 0; b < firstWd; b++) html += '<div class="sch-blank"></div>';
+  for(var d = 1; d <= n; d++){
+    var key = y + "-" + pad(m) + "-" + pad(d);
+    var r = schedOf(x, key);
+    var wins = r && !r.flex ? schedWindows(r) : [];
+    var plan = wins.length ? shortHM(wins[0].start) + "–" + shortHM(wins[wins.length - 1].end) : "";
+    var es = entriesFor(x.id).filter(function(e){ return e.date === key; });
+    var wms = 0;
+    es.forEach(function(e){ if(e.outAt) wms += workedMs(e); });
+    var st = dayStatus(x, key, es, nowMs);
+    var cls = st.code === "late" || st.code === "early" ? "sch-b-late"
+      : st.code === "absent" ? "sch-b-absent"
+      : (st.code === "ontime" || st.code === "present") ? "sch-b-present" : "";
+    var inner = "<b>" + d + "</b>";
+    if(wms) inner += "<span>" + decHours(wms) + "h</span>";
+    else if(plan) inner += "<span>" + esc(plan) + "</span>";
+    html += '<div class="sch-cell ' + cls + '" title="' + esc(fmtShortDate(key) + " · " + (plan ? "plan " + plan : "no plan") + (wms ? " · worked " + decHours(wms) + "h" : "")) + '">' + inner + "</div>";
+  }
+  el.innerHTML = html;
 }
 function shiftSchedMonth(d){
   var a = (schedMonth || localKey(new Date()).slice(0, 7)).split("-");
