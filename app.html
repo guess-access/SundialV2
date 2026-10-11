@@ -1552,10 +1552,15 @@ function api(method, path, body){
   if(auth) opts.headers.Authorization = "Bearer " + auth.token;
   if(body !== undefined){ opts.headers["Content-Type"] = "application/json"; opts.body = J(body); }
   return fetch(API + path, opts).then(function(r){
+    var json = false;
+    try { json = String(r.headers.get("content-type") || "").indexOf("json") >= 0; } catch(e) {}
     return r.json().catch(function(){ return {}; }).then(function(data){
-      if(!r.ok){
-        var e = new Error(data.error || "The server said no (" + r.status + ").");
-        e.status = r.status; throw e;
+      /* Some static hosts answer every path with the front page (status 200,
+         HTML body). That is not the API - treat it as missing. */
+      if(!r.ok || !json){
+        var e = new Error(!json ? "That address didn't answer with the API."
+                                : ((data && data.error) || "The server said no (" + r.status + ")."));
+        e.status = !r.ok ? r.status : 404; throw e;
       }
       return data;
     });
