@@ -235,7 +235,9 @@ pays like any worked day. If the person already has a shift that day, approval
 is blocked and the admin declines and edits the shift instead — so an outage
 can never double-pay a day. Mid-shift outages use the **Offline** button
 instead: status flips to Offline (reclick for Back online) and the minutes
-come out of worked time like any break, as many times as the power flaps.
+come out of worked time like any break, as many times as the power flaps. The
+timesheet lists every pause kind in its own column with an **Offline** total
+beside Break time.
 
 Admins can also pull a whole roster at once: **Import from EE-DATA** (My Info,
 beside the add-user form) reads the link-shared Google Sheet tab of that name
@@ -249,6 +251,14 @@ Passcode) column of 4+ characters sets the starting passcode instead. Re-pulls
 skip whoever is already here, so running it twice changes nothing. (The
 sheet's own Date of Birth column holds phone numbers, not dates, so the
 import ignores it — worth cleaning at the source.)
+
+## Schedules month view
+
+The admin **Schedules** tab lays the whole calendar month out per person:
+every day shows the rostered span against hours actually worked, tinted by
+the day's status, with an **Attendance summary** underneath (scheduled and
+worked hours, days, absents, lates). The **Schedule** button on any row opens
+that person's weekly pattern for editing, and the matrix refreshes on save.
 
 ## Demo mode (no backend)
 

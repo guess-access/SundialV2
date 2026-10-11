@@ -416,6 +416,21 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .pro-ava-file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .pro-ava-badge{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--line);color:var(--muted);font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 9px;border-radius:999px;white-space:nowrap}
 .emp-label span:last-child{color:var(--signal)}
+/* schedules month matrix */
+.sch-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.sch-label{font-family:var(--display);font-weight:800;font-size:1.05rem;letter-spacing:-.01em;margin-right:auto}
+.sch-grid{font-size:.82rem}
+.sch-grid th,.sch-grid td{white-space:nowrap}
+.sch-grid thead th:first-child,.sch-grid tbody td:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+.sch-day{text-align:center;min-width:54px}
+.sch-day span{display:block;font-size:.66rem;font-weight:400;color:var(--muted)}
+.sch-we{opacity:.7}
+.sch-plan{display:block;font-size:.7rem;color:var(--muted)}
+.sch-work{display:block;font-weight:700}
+.sch-ok{background:var(--signal-fill)}
+.sch-late{background:var(--amber-fill)}
+.sch-absent{background:var(--alert-fill)}
+.sch-open{background:var(--lunch-fill)}
 .emp-computed{display:block;margin-top:5px;font-size:.82rem;color:var(--muted)}
 .emp-ava{width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:-9px;margin-right:9px;background:var(--panel-2);border:1px solid var(--line-soft)}
 .emp-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:.8rem;color:var(--muted)}
@@ -526,6 +541,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <button class="tab" role="tab" data-view="clock" aria-selected="true">Clock</button>
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
+      <button class="tab hidden" role="tab" data-view="schedules" aria-selected="false" id="tabSched">Schedules</button>
       <a class="nav-leave" id="btnLeave" href="https://cmph48dib0036y043ztgjjk9i.zapier.app/page" target="_blank" rel="noopener noreferrer">Leave Request Form <span aria-hidden="true">↗</span></a>
     </div>
 
@@ -574,11 +590,12 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <div><span>Days worked</span><strong id="tDays">0</strong></div>
           <div><span>Absent</span><strong id="tAbsent">0</strong></div>
           <div><span>Break time</span><strong id="tBreak">0:00</strong></div>
+          <div><span>Offline</span><strong id="tOff">0:00</strong></div>
           <div><span>Total worked</span><strong id="tWorked">0:00</strong></div>
         </div>
         <div class="scroller">
           <table id="sheetTable">
-            <thead><tr><th>Date</th><th>Status</th><th>Clock in</th><th>Clock out</th><th class="num">Break 1</th><th class="num">Break 2</th><th class="num">Lunch</th><th class="num">Worked</th><th></th></tr></thead>
+            <thead><tr id="sheetHeadRow"><th>Date</th><th>Status</th><th>Clock in</th><th>Clock out</th><th class="num">Worked</th><th></th></tr></thead>
             <tbody id="sheetBody"></tbody>
           </table>
         </div>
@@ -623,6 +640,37 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <label class="field" style="flex:0 0 auto"><span>Self sign-up</span>
             <select id="tSignup"><option value="on">Anyone can create an account</option><option value="off">Admin adds people only</option></select>
           </label>
+        </div>
+      </div>
+    </div>
+    <!-- schedules view: the whole month, everyone, hours against plan -->
+    <div id="vSchedules" class="hidden">
+      <div class="emp-head">
+        <p class="emp-kicker">Roster</p>
+        <h2>Schedules</h2>
+        <p id="schLede">Every rostered day of the month, with hours worked against it. Pick a name to change their weekly pattern.</p>
+      </div>
+      <div class="panel block" style="margin-bottom:16px">
+        <div class="sch-nav">
+          <button class="btn btn-quiet" id="schPrev" type="button" style="padding:7px 13px;font-size:.85rem">← Prev</button>
+          <span class="sch-label" id="schLabel"></span>
+          <button class="btn btn-quiet" id="schToday" type="button" style="padding:7px 13px;font-size:.85rem">This month</button>
+          <button class="btn btn-quiet" id="schNext" type="button" style="padding:7px 13px;font-size:.85rem">Next →</button>
+        </div>
+        <div class="scroller">
+          <table class="sch-grid">
+            <thead><tr id="schHeadRow"></tr></thead>
+            <tbody id="schBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel block" style="margin-bottom:16px">
+        <div class="emp-label"><span>Attendance summary</span><span id="schSummLabel"></span></div>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Person</th><th class="num">Sched hrs</th><th class="num">Worked hrs</th><th class="num">Days</th><th class="num">Absent</th><th class="num">Late</th><th></th></tr></thead>
+            <tbody id="schSummBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -2272,6 +2320,7 @@ function render(){
   $("whoRole").textContent = "@" + u.username + (u.role === "admin" ? " · admin" : "");
   $("whoAva").innerHTML = empAvatar(u, "who-ava");
   show($("tabTeam"), u.role === "admin");
+  show($("tabSched"), u.role === "admin");
   show($("btnPin"), u.role === "admin");   // passcodes are changed by an admin
   show($("sExport"), u.role === "admin");  // only an admin exports timesheets and punch logs
   show($("sLog"), u.role === "admin");
@@ -2280,7 +2329,7 @@ function render(){
   show($("btnSchedReq"), u.role !== "admin"); // staff ask for schedule changes, the admin approves them
   show($("btnOutageReq"), u.role !== "admin"); // same for power and internet outages
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
-  if(u.role !== "admin" && view === "team") setView("clock");
+  if(u.role !== "admin" && (view === "team" || view === "schedules")) setView("clock");
 
   show($("fPerson"), u.role === "admin");
   if(u.role === "admin"){
@@ -2295,6 +2344,7 @@ function render(){
   renderClock(u);
   if(view === "sheet") renderSheet(u);
   if(view === "team" && u.role === "admin") renderTeam();
+  if(view === "schedules" && u.role === "admin") renderSchedules();
   if(view === "employees") renderEmployees();
   tick();
 }
@@ -2391,7 +2441,11 @@ function renderSheet(me){
   var rows = dayRows(target.id, from, to);
   var body = $("sheetBody");
   body.innerHTML = "";
-  var totW = 0, totB = 0, days = {}, absent = 0;
+  /* pause columns follow the registry, so new pause kinds never misalign */
+  $("sheetHeadRow").innerHTML = "<th>Date</th><th>Status</th><th>Clock in</th><th>Clock out</th>" +
+    PAUSES.map(function(p){ return '<th class="num">' + esc(p.label) + "</th>"; }).join("") +
+    '<th class="num">Worked</th><th></th>';
+  var totW = 0, totB = 0, totO = 0, days = {}, absent = 0;
   rows.forEach(function(row){
     var es = row.entries, first = es[0] || null;
     var workMs = 0, open = false;
@@ -2400,7 +2454,8 @@ function renderSheet(me){
       var ref = x.outAt ? new Date(x.outAt).getTime() : Date.now();
       if(x.outAt){ workMs += workedMs(x); totW += workedMs(x); days[row.date] = 1; }
       else open = true;
-      totB += breakMs(x, ref);
+      totB += breakMs(x, ref) - pauseMs(x, "outage", ref);
+      totO += pauseMs(x, "outage", ref);
       PAUSES.forEach(function(p, j){ pauseTot[j] += pauseMs(x, p.key, ref); });
     });
     if(row.status.code === "absent") absent++;
@@ -2444,6 +2499,7 @@ function renderSheet(me){
   $("tDays").textContent = Object.keys(days).length;
   $("tAbsent").textContent = absent;
   $("tBreak").textContent = fmtDur(totB);
+  $("tOff").textContent = fmtDur(totO);
   $("tWorked").textContent = fmtDur(totW);
 
   /* change history sits at the bottom of the sheet and names the editor */
@@ -2880,6 +2936,100 @@ $("empImport").addEventListener("click", function(){
   }).catch(function(e){ done((e && e.message) || "The import failed.", true); });
 });
 
+/* ---------------- schedules month view ----------------
+   Admin-only roster grid: every day of the month per person, scheduled hours
+   against hours worked, plus an attendance summary. Editing a pattern reuses
+   the schedule dialog, so the matrix refreshes on save like Team does. */
+var schedMonth = "";
+function shortHM(mins){
+  var h = Math.floor(mins / 60) % 24, m = mins % 60;
+  return (h % 12 || 12) + (m ? ":" + pad(m) : "") + (h < 12 ? "a" : "p");
+}
+function schedMinutes(r){
+  if(!r || r.flex) return 0;
+  return schedWindows(r).reduce(function(s, w){
+    var dur = w.end - w.start;
+    if(dur <= 0) dur += 1440;
+    return s + dur;
+  }, 0);
+}
+function schStatusClass(code){
+  return code === "late" || code === "early" ? "sch-late"
+    : code === "absent" ? "sch-absent"
+    : code === "ontime" || code === "present" ? "sch-ok"
+    : code === "open" ? "sch-open" : "";
+}
+function renderSchedules(){
+  var u = currentUser(); if(!u || u.role !== "admin") return;
+  if(!schedMonth) schedMonth = localKey(new Date()).slice(0, 7);
+  var a = schedMonth.split("-"), y = +a[0], m = +a[1];
+  var n = new Date(y, m, 0).getDate();
+  var label = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  $("schLabel").textContent = label;
+  $("schSummLabel").textContent = label;
+  var hr = $("schHeadRow"); hr.innerHTML = "<th>Person</th>";
+  for(var d = 1; d <= n; d++){
+    var wd = new Date(y, m - 1, d).getDay();
+    hr.innerHTML += '<th class="sch-day' + (wd === 0 || wd === 6 ? " sch-we" : "") + '">' + d +
+      "<span>" + DAY_NAMES[wd] + "</span></th>";
+  }
+  var body = $("schBody"); body.innerHTML = "";
+  var summ = $("schSummBody"); summ.innerHTML = "";
+  var nowMs = Date.now();
+  var people = state.users.filter(function(x){ return x.active !== false; });
+  people.forEach(function(x){
+    var cells = "<td>" + esc(x.name) + "</td>";
+    var schedMs = 0, workMs = 0, days = 0, absent = 0, late = 0;
+    for(var d = 1; d <= n; d++){
+      var key = schedMonth + "-" + pad(d);
+      var r = schedOf(x, key);
+      var mins = schedMinutes(r);
+      schedMs += mins * 60000;
+      var es = entriesFor(x.id).filter(function(e){ return e.date === key; });
+      var closed = es.filter(function(e){ return e.outAt; });
+      var wms = 0;
+      closed.forEach(function(e){ wms += workedMs(e); });
+      var st = dayStatus(x, key, es, nowMs);
+      if(closed.length){ days++; workMs += wms; }
+      if(st.code === "absent") absent++;
+      if(st.code === "late") late++;
+      var wins = r && !r.flex ? schedWindows(r) : [];
+      var plan = wins.length ? shortHM(wins[0].start) + "–" + shortHM(wins[wins.length - 1].end) : "";
+      var work = closed.length ? decHours(wms) : (es.length ? "…" : "");
+      cells += '<td class="sch-day ' + schStatusClass(st.code) + '" title="' + esc(fmtShortDate(key) + " · " + (plan ? "plan " + plan : "no plan") + (work ? " · worked " + work : "")) + '">' +
+        '<span class="sch-plan">' + esc(plan) + "</span>" +
+        '<span class="sch-work">' + esc(work) + "</span></td>";
+    }
+    var tr = document.createElement("tr");
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+    var tr2 = document.createElement("tr");
+    tr2.innerHTML = "<td>" + esc(x.name) + "</td>" +
+      '<td class="num">' + (schedMs / 3600000).toFixed(1) + "</td>" +
+      '<td class="num">' + decHours(workMs) + "</td>" +
+      '<td class="num">' + days + "</td>" +
+      '<td class="num">' + absent + "</td>" +
+      '<td class="num">' + late + "</td>" +
+      '<td style="text-align:right;white-space:nowrap"><button class="btn btn-quiet" data-sched="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button></td>';
+    summ.appendChild(tr2);
+  });
+}
+function shiftSchedMonth(d){
+  var a = (schedMonth || localKey(new Date()).slice(0, 7)).split("-");
+  var dt = new Date(+a[0], +a[1] - 1 + d, 1);
+  schedMonth = dt.getFullYear() + "-" + pad(dt.getMonth() + 1);
+  renderSchedules();
+}
+$("schPrev").addEventListener("click", function(){ shiftSchedMonth(-1); });
+$("schNext").addEventListener("click", function(){ shiftSchedMonth(1); });
+$("schToday").addEventListener("click", function(){ schedMonth = ""; renderSchedules(); });
+$("schSummBody").addEventListener("click", function(ev){
+  var id = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-sched");
+  if(!id) return;
+  var su = state.users.filter(function(x){ return x.id === id; })[0];
+  if(su) openSchedDialog(su);
+});
+
 /* ---------------- generic action dialog ---------------- */
 var actDlg = $("actDlg");
 function openAct(title, bodyHtml, buttons){
@@ -3305,6 +3455,7 @@ function setView(v){
   show($("vClock"), v === "clock");
   show($("vSheet"), v === "sheet");
   show($("vTeam"), v === "team");
+  show($("vSchedules"), v === "schedules");
   show($("vEmployees"), v === "employees");
   Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
     t.setAttribute("aria-selected", String(t.dataset.view === v));
