@@ -233,7 +233,9 @@ request. Approving writes a full shift for the admin's chosen hours, prefilled
 from that day's schedule, and signs it in the change history; the day then
 pays like any worked day. If the person already has a shift that day, approval
 is blocked and the admin declines and edits the shift instead — so an outage
-can never double-pay a day.
+can never double-pay a day. Mid-shift outages use the **Offline** button
+instead: status flips to Offline (reclick for Back online) and the minutes
+come out of worked time like any break, as many times as the power flaps.
 
 Admins can also pull a whole roster at once: **Import from EE-DATA** (My Info,
 beside the add-user form) reads the link-shared Google Sheet tab of that name

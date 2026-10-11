@@ -1906,7 +1906,10 @@ var PAUSES = [
   { key:"break1", label:"Break 1", cls:"btn-brk", chip:"chip-brk" },
   { key:"break2", label:"Break 2", cls:"btn-brk", chip:"chip-brk" },
   { key:"bio",    label:"Bio break", cls:"btn-brk", chip:"chip-brk" },
-  { key:"lunch",  label:"Lunch",   cls:"btn-lunch", chip:"chip-lunch" }
+  { key:"lunch",  label:"Lunch",   cls:"btn-lunch", chip:"chip-lunch" },
+  /* power / internet outage mid-shift: deducted like a break, but tappable
+     again and again while the power flaps (see the repeat carve-outs below) */
+  { key:"outage", label:"Offline", cls:"btn-brk", chip:"chip-brk" }
 ];
 function pauseDef(key){
   return PAUSES.filter(function(p){ return p.key === key; })[0] || { key:key, label:key, cls:"btn-brk", chip:"chip-brk" };
@@ -2235,7 +2238,9 @@ function setPause(key){
     return;
   }
   if(live) live.end = now.toISOString();
-  if(usedPause(e, key)){ toast(def.label + " was already taken this shift."); save(); render(); return; }
+  /* every pause is one use per shift - except outages, which come back each
+     time the power flaps */
+  if(usedPause(e, key) && key !== "outage"){ toast(def.label + " was already taken this shift."); save(); render(); return; }
   e.pauses.push({ type: key, start: now.toISOString(), end: null });
   save(); render(); toast(def.label + " started at " + fmtClock(now));
 }
@@ -2323,8 +2328,8 @@ function renderClock(u){
   add("Clock in", "btn-in", !!e, punchIn);
   PAUSES.forEach(function(p){
     var isLive = !!live && live.type === p.key;
-    var done = usedPause(e, p.key);
-    var label = isLive ? "End " + p.label.toLowerCase() : done ? p.label + " taken" : p.label;
+    var done = usedPause(e, p.key) && p.key !== "outage";
+    var label = isLive ? (p.key === "outage" ? "Back online" : "End " + p.label.toLowerCase()) : done ? p.label + " taken" : p.label;
     add(label, p.cls + (isLive ? " live" : ""), !e || (done && !isLive), function(){ setPause(p.key); });
   });
   add("Clock out", "btn-out", !e, punchOut);
