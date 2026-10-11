@@ -2320,7 +2320,7 @@ function render(){
   $("whoRole").textContent = "@" + u.username + (u.role === "admin" ? " · admin" : "");
   $("whoAva").innerHTML = empAvatar(u, "who-ava");
   show($("tabTeam"), u.role === "admin");
-  show($("tabSched"), u.role === "admin");
+  show($("tabSched"), true); // the month view is posted for everyone; editing stays admin-only
   show($("btnPin"), u.role === "admin");   // passcodes are changed by an admin
   show($("sExport"), u.role === "admin");  // only an admin exports timesheets and punch logs
   show($("sLog"), u.role === "admin");
@@ -2329,7 +2329,7 @@ function render(){
   show($("btnSchedReq"), u.role !== "admin"); // staff ask for schedule changes, the admin approves them
   show($("btnOutageReq"), u.role !== "admin"); // same for power and internet outages
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
-  if(u.role !== "admin" && (view === "team" || view === "schedules")) setView("clock");
+  if(u.role !== "admin" && view === "team") setView("clock");
 
   show($("fPerson"), u.role === "admin");
   if(u.role === "admin"){
@@ -2344,7 +2344,7 @@ function render(){
   renderClock(u);
   if(view === "sheet") renderSheet(u);
   if(view === "team" && u.role === "admin") renderTeam();
-  if(view === "schedules" && u.role === "admin") renderSchedules();
+  if(view === "schedules") renderSchedules();
   if(view === "employees") renderEmployees();
   tick();
 }
@@ -2960,7 +2960,8 @@ function schStatusClass(code){
     : code === "open" ? "sch-open" : "";
 }
 function renderSchedules(){
-  var u = currentUser(); if(!u || u.role !== "admin") return;
+  var u = currentUser(); if(!u) return;
+  var isAdmin = u.role === "admin";
   if(!schedMonth) schedMonth = localKey(new Date()).slice(0, 7);
   var a = schedMonth.split("-"), y = +a[0], m = +a[1];
   var n = new Date(y, m, 0).getDate();
@@ -3010,7 +3011,7 @@ function renderSchedules(){
       '<td class="num">' + days + "</td>" +
       '<td class="num">' + absent + "</td>" +
       '<td class="num">' + late + "</td>" +
-      '<td style="text-align:right;white-space:nowrap"><button class="btn btn-quiet" data-sched="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button></td>';
+      '<td style="text-align:right;white-space:nowrap">' + (isAdmin ? '<button class="btn btn-quiet" data-sched="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button>' : "") + "</td>";
     summ.appendChild(tr2);
   });
 }
