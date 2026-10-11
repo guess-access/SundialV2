@@ -447,6 +447,10 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sch-lg-present{border-color:var(--signal);background:var(--signal)}
 .sch-lg-late{border-color:var(--amber);background:var(--amber)}
 .sch-lg-absent{border-color:var(--alert);background:var(--alert)}
+/* staff screens read summary first, calendar second */
+#vSchedules.summ-first{display:flex;flex-direction:column}
+#vSchedules.summ-first #schSummWrap{order:1}
+#vSchedules.summ-first #schGridWrap{order:2}
 @media(max-width:560px){
   .sch-cal{gap:5px}
   .sch-cell{min-height:52px;padding:4px 5px}
@@ -671,7 +675,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <h2 id="schTitle">Schedules</h2>
         <p id="schLede">Every rostered day of the month, with hours worked against it. Pick a name to change their weekly pattern.</p>
       </div>
-      <div class="panel block" style="margin-bottom:16px">
+      <div class="panel block" style="margin-bottom:16px" id="schGridWrap">
         <div class="sch-nav">
           <button class="btn btn-quiet" id="schPrev" type="button" style="padding:7px 13px;font-size:.85rem">← Prev</button>
           <span class="sch-label" id="schLabel"></span>
@@ -693,7 +697,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           </div>
         </div>
       </div>
-      <div class="panel block" style="margin-bottom:16px">
+      <div class="panel block" style="margin-bottom:16px" id="schSummWrap">
         <div class="emp-label"><span>Attendance summary</span><span id="schSummLabel"></span></div>
         <div class="scroller">
           <table>
@@ -2992,6 +2996,7 @@ function schStatusClass(code){
 function renderSchedules(){
   var u = currentUser(); if(!u) return;
   var isAdmin = u.role === "admin";
+  $("vSchedules").classList.toggle("summ-first", !isAdmin);
   if(!schedMonth) schedMonth = localKey(new Date()).slice(0, 7);
   var a = schedMonth.split("-"), y = +a[0], m = +a[1];
   var n = new Date(y, m, 0).getDate();
