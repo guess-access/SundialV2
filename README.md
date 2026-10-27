@@ -140,11 +140,11 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
 
 ## Landing page
 
-`index.html` is the front page, and it is what the site root serves: a headline on the left, and on the right the app itself — its **loading screen** with the mark still turning, and a **sign-in** directly underneath. Pressing Sign in lights a loading line under the mark — the same bar the video-intro frame uses — with *Warming up your timesheet…* beneath it, while the credentials travel across.
+`index.html` is the front page, and it is what the site root serves: the brand lockup - mark, `SUNDIAL SOLSTICE`, rule, `HR + PAYROLL` - then the headline, and on the right the app itself — its **loading screen** with the mark still turning, and a **sign-in** directly underneath. Pressing Sign in lights a loading line under the mark — the same bar the video-intro frame uses — with *Warming up your timesheet…* beneath it, while the credentials travel across.
 
 The hero sign-in performs the app's own login on the spot: username check, salt fetch, passcode hash, login call — the same exchange, byte for byte, that the app runs (the hash, the validator and the API shape are mirrored). The session lands in `localStorage` under the app's key, so `app.html` opens already inside. Whatever cannot sign in there — first setup, a missing backend — falls back to the handoff: the username and passcode travel to `app.html` through `sessionStorage`, never the query string, so a passcode never reaches a URL, a history entry or a server log, and the app fills its own form or explains why it cannot finish.
 
-Everything else lives one click away on `about.html`: the mark in motion (the 16:9 **video intro** frame, the app loading screen, the reversed lockup), the feature list, the colour and motion spec, and the asset download. Both marketing pages share one stylesheet, `site.css`, so the dark/light switch paints them identically.
+The hero carries the full lockup - the same animated mark, its name, a rule and the `HR + PAYROLL` tagline - set in tokens rather than fixed colours, so it paints correctly on either theme; `sundial-logo.svg` is that lockup as one self-contained file for use anywhere else. The old About page and its **About us** button have been removed, so `index.html` is now the only marketing page and `site.css` paints every part of it.
 
 The app itself is `app.html`. Its seal-and-wordmark header is the way back to the front page.
 
@@ -156,7 +156,6 @@ so it works as an `<img>`, as an inline `<svg>` you can restyle, and as a favico
 resolves to a finished static state under `prefers-reduced-motion`.
 
     http://localhost:8788/          # the front page, at the site root
-    http://localhost:8788/about.html # about: the mark, the product, colours, assets
     http://localhost:8788/app.html # the app — any static server works, e.g. serve.ps1
 
 Because all three pages are static, they publish anywhere this repository does — GitHub Pages
@@ -166,12 +165,12 @@ and Netlify alike — with no build step.
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | The site root — the front page: headline, the app's loading screen and sign-in. |
+| `index.html` | The site root - the front page: brand lockup, headline, the app's loading screen and sign-in. Opens on the white theme. |
 | `demo.js` | Demo backend the front page uses: the nine `/api/*` endpoints re-implemented in the browser against `localStorage`. The app carries its own copy inline, so `app.html` stands alone — change both together. |
-| `about.html` | About us — the mark in motion, product, colours, asset download. Shares `site.css`. |
-| `site.css` | The one stylesheet behind `index.html` and `about.html`, dark by default with a light switch. |
+| `site.css` | The one stylesheet behind `index.html`, white by default with a light switch (the dark set stays in `:root` for the toggle). |
 | `app.html` | The app — clock, timesheets, leave, payroll. Everything a signed-in person sees. Self-contained under the Sundial Solstice brand (own login, demo backend inlined); the PNG export still draws `logo.png` onto the sheet. Speaks the same design language as the front page: Jakarta display type with Inter body, the teal/coral/lime accents, pill buttons, 12px fields, 20px cards, and the same dark-by-default switch (the `sundial-theme` choice is shared, so the theme follows you between pages). |
 | `sundial-mark.svg` | The animated mark on its own: rotating orbits, pulsing dot, self-contained CSS. |
+| `sundial-logo.svg` | The full lockup: mark, `SUNDIAL SOLSTICE`, rule, `HR + PAYROLL`. Text is `currentColor`, so it follows the page it lands on. |
 | `netlify/functions/*.js` | The backend: `status`, `salt`, `signup`, `login`, `logout`, `state`, `sync`, `migrate`, `health`. |
 | `lib/store.js` | Shared storage and permission code the functions are bundled with. |
 | `package.json` | Pulls in `@netlify/blobs` when Netlify builds from git. |

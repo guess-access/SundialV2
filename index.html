@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,11 +11,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site.css">
 <script>
-/* Applied before first paint, so the page never flashes the other theme. Dark is
-   the built-in default, so only a remembered preference has to be written back. */
-try{var __t=localStorage.getItem("sundial-theme");
-if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme",__t);
-}catch(e){}
+/* Applied before first paint, so the page never flashes the other theme. Light is
+   the default — the <html> tag already carries data-theme="light" — so only a
+   remembered DARK choice has to be written back. Nothing remembered means light,
+   and that choice is written down so the shared sundial-theme key hands the same
+   theme to app.html. */
+try{
+var __t=localStorage.getItem("sundial-theme");
+if(__t!=="light"&&__t!=="dark"){__t="light";try{localStorage.setItem("sundial-theme",__t);}catch(e2){}}
+document.documentElement.setAttribute("data-theme",__t);
+}catch(e){document.documentElement.setAttribute("data-theme","light");}
 </script>
 
 </head>
@@ -48,15 +53,24 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
 <section class="hero">
   <div class="wrap hero__grid">
     <div class="hero__intro">
+      <div class="lockup" role="img" aria-label="Sundial Solstice — HR and Payroll">
+        <svg class="lockup__mark" viewBox="0 0 240 240" aria-hidden="true">
+          <circle class="sd-ring" cx="120" cy="120" r="104"/>
+          <g class="sd-orbit sd-orbit--a"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(-44 120 120)"/></g>
+          <g class="sd-orbit sd-orbit--b"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(44 120 120)"/></g>
+          <g class="sd-dotwrap">
+            <circle class="sd-halo" cx="120" cy="120" r="16"/>
+            <circle class="sd-dot"  cx="120" cy="120" r="16"/>
+          </g>
+        </svg>
+        <div class="lockup__word">SUNDIAL SOLSTICE</div>
+        <span class="lockup__rule" aria-hidden="true"></span>
+        <div class="lockup__tag">HR + PAYROLL</div>
+      </div>
       <h1><span class="l1">Time in. Payroll out.</span><br><em>Nothing lost in between</em></h1>
       <p class="lede">
         One system for schedules, timesheets, leave, and payroll. Your month closes itself.
       </p>
-      <div class="hero__act">
-        <a class="btn btn--primary" href="about.html">About us
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </a>
-      </div>
     </div>
 
     <div class="markcard">

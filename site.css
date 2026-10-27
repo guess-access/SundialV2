@@ -1,6 +1,8 @@
 :root{
   color-scheme:dark;
-  /* DARK IS THE DEFAULT. Everything the page paints comes from a token, so the
+  /* THE PAGE OPENS IN LIGHT: index.html stamps data-theme="light" before first
+     paint, so these :root values are the DARK set, written back only when the
+     switch asks for dark. Everything the page paints comes from a token, so the
      white theme is the same token names reset underneath in [data-theme="light"]
      and nothing else in this file changes when the switch is thrown.
      Two rules keep it readable: a fill never gets darker than the page it sits
@@ -35,7 +37,8 @@
   --sans:"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-/* The original white theme, value for value. The toggle remembers this one. */
+/* The white theme, value for value. The page opens on this one and the toggle
+   remembers a dark choice. */
 [data-theme="light"]{
   color-scheme:light;
   --teal:#00bfa6;
@@ -191,7 +194,33 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
   .hero h1 .l1{white-space:nowrap}
 }
 .lede{font-size:clamp(16.5px,1.5vw,19px);color:var(--muted);max-width:52ch;margin:20px 0 0}
-.hero__act{display:flex;margin-top:28px}
+/* ---------- the brand lockup in the hero: mark, name, rule, tagline ----------
+   Text is set in tokens rather than a fixed colour, so the same block paints
+   dark ink on the white theme and pale ink on the dark one. */
+.lockup{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 24px}
+.lockup__mark{width:72px;height:72px;display:block}
+.lockup__word{
+  font-family:var(--sans);font-weight:800;font-size:19px;letter-spacing:.06em;
+  color:var(--navy);margin-top:14px;
+  animation:lockup-rise .5s cubic-bezier(.2,.9,.3,1) .35s both;
+}
+.lockup__rule{
+  width:54px;height:2px;border-radius:99px;margin-top:9px;
+  background:linear-gradient(90deg,var(--teal),var(--coral));
+  transform-origin:left center;
+  animation:lockup-draw .5s ease-out .55s both;
+}
+.lockup__tag{
+  font-family:var(--body);font-weight:700;font-size:12px;letter-spacing:.24em;
+  color:var(--teal-deep);margin-top:10px;
+  animation:lockup-rise .5s cubic-bezier(.2,.9,.3,1) .7s both;
+}
+@keyframes lockup-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes lockup-draw{from{opacity:0;transform:scaleX(.2)}to{opacity:1;transform:scaleX(1)}}
+@media(max-width:640px){
+  .lockup__mark{width:60px;height:60px}
+  .lockup__word{font-size:17px}
+}
 
 /* hero mark card */
 .markcard{
@@ -397,7 +426,7 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto}
   .sd-ring,.sd-orbit,.sd-dotwrap,.sd-dot,.intro__rec i,.intro__bar i,.appload__bar i,
-  .dots i,.feature,.btn{
+  .dots i,.feature,.btn,.lockup__word,.lockup__rule,.lockup__tag{
     animation:none !important;
     transition:none !important;
   }
