@@ -183,9 +183,13 @@ input,select{font:inherit}
 
 /* ---------- app chrome ---------- */
 .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 0 16px;border-bottom:1px solid var(--line-soft);margin-bottom:18px}
-.who{margin-right:auto;min-width:0;display:flex;align-items:center;gap:12px}
-.who__text{min-width:0}
-.who__text strong{display:block;font-weight:600;letter-spacing:-.01em}
+/* the name on top is the way into My Info — looks like a link, behaves like one */
+.who{margin-right:auto;min-width:0;display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none;cursor:pointer;border-radius:10px;padding:4px 8px;margin-left:-8px;transition:background .12s ease}
+.who:hover{background:var(--panel-2)}
+.who:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.who__text{min-width:0;display:block}
+.who__text strong{display:block;font-weight:600;letter-spacing:-.01em;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;transition:text-decoration-color .12s ease}
+.who:hover .who__text strong{text-decoration-color:var(--signal)}
 .who__text span{font-size:.84rem;color:var(--muted)}
 .who-ava{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);border:1px solid var(--line)}
 .who-ava--init{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:1.1rem;color:var(--muted)}
@@ -499,17 +503,9 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
 
   <!-- ============ BIG TITLE ============ -->
   <header class="brand">
-    <a class="brand-home" href="index.html" title="Back to the Sundial site">
-      <svg class="brand-mark" viewBox="0 0 240 240" role="img" aria-label="Sundial animated mark: two orbits rotating around a pulsing dot">
-        <circle class="sd-ring" cx="120" cy="120" r="104"/>
-        <g class="sd-orbit sd-orbit--a"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(-44 120 120)"/></g>
-        <g class="sd-orbit sd-orbit--b"><ellipse cx="120" cy="120" rx="95" ry="44" transform="rotate(44 120 120)"/></g>
-        <g class="sd-dotwrap">
-          <circle class="sd-halo" cx="120" cy="120" r="16"/>
-          <circle class="sd-dot" cx="120" cy="120" r="16"/>
-        </g>
-      </svg>
-      <h1 class="brand-title">Sundial Solstice</h1>
+    <a class="brand-home" href="index.html" title="Back to Prestige Dealer Alliance">
+      <img class="brand-mark" src="prestige-logo.svg" alt="Prestige Dealer Alliance">
+      <h1 class="brand-title">Prestige Dealer Alliance</h1>
       <p class="brand-sub">Timelogs</p>
       <span class="brand-rule" aria-hidden="true"></span>
     </a>
@@ -550,19 +546,19 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
   <!-- ============ APP ============ -->
   <section id="app" class="hidden">
     <div class="topbar">
-      <div class="who">
+      <a class="who" id="whoLink" href="#my-info" title="Open My Info">
         <span id="whoAva"></span>
-        <div class="who__text">
+        <span class="who__text">
           <strong id="whoName"></strong>
           <span id="whoRole"></span>
-        </div>
-      </div>
+        </span>
+      </a>
       <button class="btn btn-quiet" id="btnPin">Change passcode</button>
       <button class="btn btn-quiet" id="btnOut">Sign out</button>
     </div>
 
     <div class="nav" role="tablist">
-      <button class="tab" role="tab" data-view="employees" aria-selected="false">My Info</button>
+      <button class="tab hidden" role="tab" data-view="employees" aria-selected="false" id="tabMine">My Info</button>
       <button class="tab" role="tab" data-view="clock" aria-selected="true">Clock</button>
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
@@ -3683,6 +3679,11 @@ function setView(v){
 }
 Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
   t.addEventListener("click", function(){ setView(t.dataset.view); });
+});
+/* the bold name in the top bar is a link into My Info */
+$("whoLink").addEventListener("click", function(e){
+  e.preventDefault();
+  setView("employees");
 });
 
 function thisWeek(){
