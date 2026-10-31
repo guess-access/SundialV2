@@ -27,7 +27,7 @@ var Demo = (function () {
   var seeded = null; /* promise: seed accounts exist */
 
   function blank() {
-    return { users: [], entries: [], requests: [], settings: { signup: true }, sessions: {} };
+    return { users: [], entries: [], requests: [], payroll: [], settings: { signup: true }, sessions: {} };
   }
   function asList(v) {
     return Array.isArray(v) ? v.filter(function (x) { return x && typeof x === "object"; }) : [];
@@ -40,6 +40,7 @@ var Demo = (function () {
       users: asList(db.users),
       entries: asList(db.entries),
       requests: asList(db.requests),
+      payroll: asList(db.payroll),
       settings: (db.settings && typeof db.settings === "object" && !Array.isArray(db.settings)) ? db.settings : { signup: true },
       sessions: (db.sessions && typeof db.sessions === "object" && !Array.isArray(db.sessions)) ? db.sessions : {}
     };
@@ -129,10 +130,15 @@ var Demo = (function () {
       delete copy.hash;
       return copy;
     });
+    var self = asList(db.users).filter(function (u) { return u.id === selfId; })[0];
+    var seeAllPayroll = !!(self && (self.role === "admin" || self.payrollAccess === true));
+    var payroll = asList(db.payroll);
+    if (!seeAllPayroll) payroll = payroll.filter(function (s) { return s && s.userId === selfId; });
     return {
       users: users,
       entries: asList(db.entries),
       requests: asList(db.requests),
+      payroll: payroll,
       settings: (db.settings && typeof db.settings === "object") ? db.settings : { signup: true }
     };
   }
@@ -253,6 +259,29 @@ var Demo = (function () {
       stored = {};
       Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
       if (Array.isArray(stored.audit) && stored.audit.length > MAX_ENTRY_AUDIT) stored.audit = stored.audit.slice(-MAX_ENTRY_AUDIT);
+    } else if (coll === "payroll") {
+      if (typeof item.userId !== "string" || typeof item.periodStart !== "string" || typeof item.periodEnd !== "string") {
+        deny(400, "That payroll submission wasn't in a format this server understands.");
+      }
+      var canPay = isAdmin || self.payrollAccess === true;
+      var ownRejected = !!existing && existing.userId === self.id && existing.status === "rejected";
+      if (!existing) {
+        if (item.userId !== self.id && !isAdmin) deny(403, "You can only submit your own hours.");
+      } else if (!canPay && !ownRejected) {
+        deny(403, "Only someone with payroll access can change a submitted timesheet.");
+      }
+      stored = {};
+      Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
+      stored.userId = existing ? existing.userId : item.userId;
+      stored.submittedBy = existing ? existing.submittedBy : self.id;
+      stored.status = ["submitted", "approved", "rejected"].indexOf(stored.status) >= 0 ? stored.status : "submitted";
+      if (!existing) { stored.decidedAt = null; stored.decidedBy = ""; }
+      if (ownRejected && !canPay) {
+        stored.status = "submitted";
+        stored.decidedAt = null; stored.decidedBy = "";
+        stored.submittedBy = self.id;
+        stored.submittedAt = new Date().toISOString();
+      }
     } else {
       if (typeof item.userId !== "string") deny(400, "That request wasn't in a format this server understands.");
       /* Who may decide: an admin, or the reporter's team lead inside the first
@@ -314,6 +343,8 @@ var Demo = (function () {
       }
     } else if (coll === "entries" && !isAdmin) {
       deny(403, "Only an admin can delete a shift.");
+    } else if (coll === "payroll" && !isAdmin) {
+      deny(403, "Only an admin can remove a payroll submission.");
     } else if (!isAdmin && existing.userId !== self.id) {
       deny(403, "You can only change your own records.");
     }
@@ -322,7 +353,7 @@ var Demo = (function () {
   function applyPatch(db, patch, self, isAdmin) {
     function bad() { var e = new Error("That save wasn't in a format this server understands."); e.status = 400; throw e; }
     if (!patch || typeof patch !== "object" || Array.isArray(patch)) bad();
-    ["users", "entries", "requests"].forEach(function (coll) {
+    ["users", "entries", "requests", "payroll"].forEach(function (coll) {
       var c = patch[coll];
       if (c === undefined || c === null) return;
       if (typeof c !== "object" || Array.isArray(c)) bad();

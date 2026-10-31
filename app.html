@@ -599,9 +599,11 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <div class="panel block">
         <div class="toolbar">
           <label class="field hidden" id="fPerson"><span>Person</span><select id="sPerson"></select></label>
+          <label class="field"><span>View</span><select id="sView"><option value="week">Weekly</option><option value="pay">Pay period</option></select></label>
           <label class="field"><span>From</span><input type="date" id="sFrom"></label>
           <label class="field"><span>To</span><input type="date" id="sTo"></label>
           <button class="btn" id="sWeek">This week</button>
+          <button class="btn btn-in hidden" id="sSubmit">Submit payroll hours</button>
           <button class="btn btn-in hidden" id="sAdd">Add shift</button>
           <button class="btn" id="sExport">Export timesheet</button>
           <button class="btn" id="sPng">Download PNG</button>
@@ -629,6 +631,15 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <ul class="punches" id="auditList"></ul>
         <p class="audit-sign" id="auditSign"></p>
       </div>
+
+      <!-- payroll submissions: staff submit a pay period; only payroll-access
+           people see the submitted output and can approve or reject it -->
+      <div class="panel block hidden" id="payrollBlock">
+        <h2>Payroll submissions <span class="muted" id="payrollBadge" style="font-weight:400"></span></h2>
+        <p class="note" id="payrollNote"></p>
+        <ul class="punches" id="payrollList"></ul>
+        <p class="empty hidden" id="payrollEmpty">No payroll submissions yet.</p>
+      </div>
     </div>
 
     <!-- team view -->
@@ -649,7 +660,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <h2>People</h2>
         <div class="scroller">
           <table>
-            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Team Lead</th><th>Schedule (EST)</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Team Lead</th><th>Schedule (EST)</th><th>Payroll</th><th>Status</th><th></th></tr></thead>
             <tbody id="teamBody"></tbody>
           </table>
         </div>
@@ -770,6 +781,12 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         </label>
         <label class="field"><span>Employment status</span>
           <input type="text" id="empStatus" maxlength="40" autocomplete="off" placeholder="e.g. Regular">
+        </label>
+        <label class="field hidden" id="empPayrollField"><span>Payroll &amp; Finance access</span>
+          <select id="empPayroll">
+            <option value="no">No — can submit hours, cannot see payroll output</option>
+            <option value="yes">Yes — can view and approve payroll submissions</option>
+          </select>
         </label>
         <label class="field"><span>Notes</span>
           <textarea id="empNotes" rows="2" maxlength="500"></textarea>
@@ -956,7 +973,7 @@ var Demo = (function () {
   var seeded = null; /* promise: seed accounts exist */
 
   function blank() {
-    return { users: [], entries: [], requests: [], settings: { signup: true }, sessions: {} };
+    return { users: [], entries: [], requests: [], payroll: [], settings: { signup: true }, sessions: {} };
   }
   function asList(v) {
     return Array.isArray(v) ? v.filter(function (x) { return x && typeof x === "object"; }) : [];
@@ -969,6 +986,7 @@ var Demo = (function () {
       users: asList(db.users),
       entries: asList(db.entries),
       requests: asList(db.requests),
+      payroll: asList(db.payroll),
       settings: (db.settings && typeof db.settings === "object" && !Array.isArray(db.settings)) ? db.settings : { signup: true },
       sessions: (db.sessions && typeof db.sessions === "object" && !Array.isArray(db.sessions)) ? db.sessions : {}
     };
@@ -1058,10 +1076,15 @@ var Demo = (function () {
       delete copy.hash;
       return copy;
     });
+    var self = asList(db.users).filter(function (u) { return u.id === selfId; })[0];
+    var seeAllPayroll = !!(self && (self.role === "admin" || self.payrollAccess === true));
+    var payroll = asList(db.payroll);
+    if (!seeAllPayroll) payroll = payroll.filter(function (s) { return s && s.userId === selfId; });
     return {
       users: users,
       entries: asList(db.entries),
       requests: asList(db.requests),
+      payroll: payroll,
       settings: (db.settings && typeof db.settings === "object") ? db.settings : { signup: true }
     };
   }
@@ -1182,6 +1205,31 @@ var Demo = (function () {
       stored = {};
       Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
       if (Array.isArray(stored.audit) && stored.audit.length > MAX_ENTRY_AUDIT) stored.audit = stored.audit.slice(-MAX_ENTRY_AUDIT);
+    } else if (coll === "payroll") {
+      /* A person submits their own pay period; payroll-access people and
+         admins decide it. The submitter never sees anyone else's record. */
+      if (typeof item.userId !== "string" || typeof item.periodStart !== "string" || typeof item.periodEnd !== "string") {
+        deny(400, "That payroll submission wasn't in a format this server understands.");
+      }
+      var canPay = isAdmin || self.payrollAccess === true;
+      var ownRejected = !!existing && existing.userId === self.id && existing.status === "rejected";
+      if (!existing) {
+        if (item.userId !== self.id && !isAdmin) deny(403, "You can only submit your own hours.");
+      } else if (!canPay && !ownRejected) {
+        deny(403, "Only someone with payroll access can change a submitted timesheet.");
+      }
+      stored = {};
+      Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
+      stored.userId = existing ? existing.userId : item.userId;
+      stored.submittedBy = existing ? existing.submittedBy : self.id;
+      stored.status = ["submitted", "approved", "rejected"].indexOf(stored.status) >= 0 ? stored.status : "submitted";
+      if (!existing) { stored.decidedAt = null; stored.decidedBy = ""; }
+      if (ownRejected && !canPay) {
+        stored.status = "submitted";
+        stored.decidedAt = null; stored.decidedBy = "";
+        stored.submittedBy = self.id;
+        stored.submittedAt = new Date().toISOString();
+      }
     } else {
       if (typeof item.userId !== "string") deny(400, "That request wasn't in a format this server understands.");
       /* Who may decide: an admin, or the reporter's team lead inside the first
@@ -1243,6 +1291,8 @@ var Demo = (function () {
       }
     } else if (coll === "entries" && !isAdmin) {
       deny(403, "Only an admin can delete a shift.");
+    } else if (coll === "payroll" && !isAdmin) {
+      deny(403, "Only an admin can remove a payroll submission.");
     } else if (!isAdmin && existing.userId !== self.id) {
       deny(403, "You can only change your own records.");
     }
@@ -1251,7 +1301,7 @@ var Demo = (function () {
   function applyPatch(db, patch, self, isAdmin) {
     function bad() { var e = new Error("That save wasn't in a format this server understands."); e.status = 400; throw e; }
     if (!patch || typeof patch !== "object" || Array.isArray(patch)) bad();
-    ["users", "entries", "requests"].forEach(function (coll) {
+    ["users", "entries", "requests", "payroll"].forEach(function (coll) {
       var c = patch[coll];
       if (c === undefined || c === null) return;
       if (typeof c !== "object" || Array.isArray(c)) bad();
@@ -1505,7 +1555,7 @@ var Demo = (function () {
 var API = "/api";
 var AUTH_KEY = "shiftclock.auth";
 var LEGACY_KEY = "shiftclock.v1";
-var state = { users:[], entries:[], requests:[], settings:{ signup:true }, session:null };
+var state = { users:[], entries:[], requests:[], payroll:[], settings:{ signup:true }, session:null };
 var auth = loadAuth();
 state.session = auth ? auth.userId : null;
 var base = snapshot(state);
@@ -1526,17 +1576,18 @@ function nextId(p){ return p + Date.now().toString(36) + Math.random().toString(
 
 function snapshot(s){
   function m(list){ var o = {}; (list || []).forEach(function(x){ o[x.id] = J(x); }); return o; }
-  return { users:m(s.users), entries:m(s.entries), requests:m(s.requests), settings:J(s.settings) };
+  return { users:m(s.users), entries:m(s.entries), requests:m(s.requests), payroll:m(s.payroll), settings:J(s.settings) };
 }
 function cloneState(){
-  return JSON.parse(J({ users:state.users, entries:state.entries, requests:state.requests, settings:state.settings }));
+  return JSON.parse(J({ users:state.users, entries:state.entries, requests:state.requests, payroll:state.payroll, settings:state.settings }));
 }
 function blankState(){
-  state.users = []; state.entries = []; state.requests = []; state.settings = { signup:true };
+  state.users = []; state.entries = []; state.requests = []; state.payroll = []; state.settings = { signup:true };
   base = snapshot(state);
 }
 function replaceState(res){
   state.users = res.users || []; state.entries = res.entries || []; state.requests = res.requests || [];
+  state.payroll = res.payroll || [];
   state.settings = res.settings || { signup:true };
   base = snapshot(state);
 }
@@ -1570,7 +1621,7 @@ function api(method, path, body){
 // every collection travel as dels - the server refuses the ones it must.
 function makePatch(){
   var p = {}, any = false;
-  ["users","entries","requests"].forEach(function(c){
+  ["users","entries","requests","payroll"].forEach(function(c){
     var b = base[c], put = [], del = [], seen = {};
     state[c].forEach(function(x){ seen[x.id] = 1; if(b[x.id] !== J(x)) put.push(x); });
     Object.keys(b).forEach(function(id){
@@ -1586,8 +1637,8 @@ function makePatch(){
 
 // Fold the server's copy into local state without losing edits made while the request was in flight.
 function mergeServer(res, sent){
-  var before = J([state.users, state.entries, state.requests, state.settings]);
-  ["users","entries","requests"].forEach(function(c){
+  var before = J([state.users, state.entries, state.requests, state.payroll, state.settings]);
+  ["users","entries","requests","payroll"].forEach(function(c){
     var local = idMap(state[c]), was = idMap(sent[c]), out = [], have = {};
     (res[c] || []).forEach(function(srv){
       have[srv.id] = 1;
@@ -1600,7 +1651,7 @@ function mergeServer(res, sent){
   });
   if(J(state.settings) === J(sent.settings)) state.settings = res.settings || state.settings;
   base = snapshot(res);
-  return before !== J([state.users, state.entries, state.requests, state.settings]);
+  return before !== J([state.users, state.entries, state.requests, state.payroll, state.settings]);
 }
 
 function onApiError(err){
@@ -2395,9 +2446,9 @@ function setPause(key){
     return;
   }
   if(live) live.end = now.toISOString();
-  /* every pause is one use per shift - except outages, which come back each
-     time the power flaps */
-  if(usedPause(e, key) && key !== "outage"){ toast(def.label + " was already taken this shift."); save(); render(); return; }
+  /* Break 1, Break 2 and Lunch are one use per shift. Bio breaks and outages
+     can be taken again and again - a person may need more than one. */
+  if(usedPause(e, key) && key !== "outage" && key !== "bio"){ toast(def.label + " was already taken this shift."); save(); render(); return; }
   e.pauses.push({ type: key, start: now.toISOString(), end: null });
   save(); render(); toast(def.label + " started at " + fmtClock(now));
 }
@@ -2490,7 +2541,7 @@ function renderClock(u){
   add("Clock in", "btn-in", !!e, punchIn);
   PAUSES.forEach(function(p){
     var isLive = !!live && live.type === p.key;
-    var done = usedPause(e, p.key) && p.key !== "outage";
+    var done = usedPause(e, p.key) && p.key !== "outage" && p.key !== "bio";
     var label = isLive ? (p.key === "outage" ? "Back online" : "End " + p.label.toLowerCase()) : done ? p.label + " taken" : p.label;
     add(label, p.cls + (isLive ? " live" : ""), !e || (done && !isLive), function(){ setPause(p.key); });
   });
@@ -2526,6 +2577,8 @@ function rangeEntries(uid, from, to){
 function renderSheet(me){
   var isAdmin = me.role === "admin";
   var target = isAdmin ? (state.users.filter(function(x){ return x.id === $("sPerson").value; })[0] || me) : me;
+  var isPay = $("sView").value === "pay";
+  show($("sSubmit"), isPay);
 
   if(!isAdmin){
     var unseen = state.requests.filter(function(r){ return r.userId === me.id && r.resolvedAt && !r.seen; });
@@ -2633,6 +2686,68 @@ function renderSheet(me){
     $("auditSign").textContent = "";
   }
   show($("auditBlock"), audit.length > 0);
+  renderPayroll(me, target, from, to, isPay);
+}
+
+/* ---------------- payroll submissions ----------------
+   A staff member submits the selected pay period; the record keeps the exact
+   range, the hours and the day rows at the moment of submission. Admins and
+   anyone tagged with Payroll & Finance access see every submission and can
+   approve or reject it. Everyone else only ever receives their own records
+   from the server, so the submitted output stays private. */
+function payrollTag(s){
+  var cls = s.status === "approved" ? "approved" : s.status === "rejected" ? "declined" : "pending";
+  var label = s.status === "approved" ? "Approved" : s.status === "rejected" ? "Rejected" : "Submitted to Payroll & Finance";
+  return '<span class="reqtag ' + cls + '">' + esc(label) + "</span>";
+}
+function renderPayroll(me, target, from, to, isPay){
+  var canSeeAll = me.role === "admin" || me.payrollAccess === true;
+  var all = Array.isArray(state.payroll) ? state.payroll.slice() : [];
+  if(!canSeeAll) all = all.filter(function(s){ return s.userId === me.id; });
+  all.sort(function(a, b){ return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0); });
+
+  var current = all.filter(function(s){
+    return s.userId === target.id && s.periodStart === from && s.periodEnd === to;
+  })[0] || null;
+
+  /* the submit button reflects this period's status */
+  var btn = $("sSubmit");
+  btn.disabled = false;
+  btn.textContent = "Submit payroll hours";
+  if(current && current.status === "submitted"){
+    btn.textContent = "Submitted to Payroll & Finance ✓"; btn.disabled = true;
+  } else if(current && current.status === "approved"){
+    btn.textContent = "Approved by Payroll & Finance ✓"; btn.disabled = true;
+  } else if(current && current.status === "rejected"){
+    btn.textContent = "Resubmit payroll hours";
+  }
+
+  show($("payrollBlock"), canSeeAll || all.length > 0);
+  var list = $("payrollList");
+  list.innerHTML = "";
+  all.forEach(function(s){
+    var who = s.userName || (userOf(s.userId) || {}).name || "Unknown";
+    var pending = s.status === "submitted";
+    var actions = "";
+    if(canSeeAll && pending){
+      actions = '<button class="btn btn-quiet" data-payact="approved" data-pay="' + esc(s.id) + '" style="padding:4px 10px;font-size:.82rem">Approve</button> ' +
+                '<button class="btn btn-quiet" data-payact="rejected" data-pay="' + esc(s.id) + '" style="padding:4px 10px;font-size:.82rem">Reject</button>';
+    }
+    var li = document.createElement("li");
+    li.innerHTML = '<span class="p-when readout">' + esc(fmtShortDate(s.periodStart)) + '</span>' +
+      '<span class="p-what"><strong>' + esc(who) + '</strong> · ' + esc(fmtShortDate(s.periodStart)) + " – " + esc(fmtShortDate(s.periodEnd)) +
+        '<br><span class="muted" style="font-size:.8rem">' + esc(fmtDur(s.totalWorkedMs || 0)) + " worked · submitted " +
+        esc(fmtShortDate(dayKey(new Date(s.submittedAt)))) + " " + esc(fmtClock(new Date(s.submittedAt))) +
+        (s.decidedBy ? " · decided by @" + esc(s.decidedBy) : "") + "</span></span>" +
+      '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + payrollTag(s) + actions + "</span>";
+    list.appendChild(li);
+  });
+  show($("payrollEmpty"), all.length === 0);
+  var waiting = all.filter(function(s){ return s.status === "submitted"; }).length;
+  $("payrollBadge").textContent = waiting ? "· " + waiting + " waiting" : "";
+  $("payrollNote").textContent = canSeeAll
+    ? "Everyone tagged with Payroll & Finance access can see these submissions. Approving or rejecting is recorded with your username."
+    : "These are your submitted pay periods and their status. Only people with Payroll & Finance access can see the payroll output.";
 }
 
 /* ---------------- team leads ----------------
@@ -2750,10 +2865,17 @@ function renderTeam(){
         (u.active ? "Switch off" : "Switch on") + "</button> " +
         (selfRow ? "" : '<button class="btn btn-danger" data-del="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>');
     }
+    /* admins always see payroll, so their row says so instead of offering a
+       switch that would not change anything */
+    var payCell;
+    if(u.role === "admin") payCell = '<span class="muted">Admin — always</span>';
+    else if(isAdmin) payCell = '<button class="btn btn-quiet" data-payacc="' + esc(u.id) + '" style="padding:4px 10px;font-size:.82rem">' + (u.payrollAccess === true ? "Yes" : "No") + "</button>";
+    else payCell = u.payrollAccess === true ? "Yes" : '<span class="muted">—</span>';
     tr.innerHTML = "<td>" + esc(u.name) + "</td><td>@" + esc(u.username) + "</td>" +
       "<td>" + roleText + "</td>" +
       "<td>" + esc(ld ? ld.name : "—") + "</td>" +
       '<td style="white-space:normal;line-height:1.35;font-size:.86rem">' + schedSummary(u) + "</td>" +
+      "<td>" + payCell + "</td>" +
       "<td>" + (!u.active ? '<span class="muted">switched off</span>' : e ? '<span style="color:var(--signal)">on the clock</span>' : '<span class="muted">off</span>') + "</td>" +
       '<td style="text-align:right;white-space:nowrap">' + acts + "</td>";
     body.appendChild(tr);
@@ -2925,6 +3047,9 @@ function renderEmployees(){
   $("empPos").disabled = !isAdmin;
   $("empHired").disabled = !isAdmin;
   $("empStatus").disabled = !isAdmin;
+  show($("empPayrollField"), isAdmin);
+  $("empPayroll").value = (t.role === "admin" || t.payrollAccess === true) ? "yes" : "no";
+  $("empPayroll").disabled = !isAdmin;
   $("empErr").textContent = "";
 }
 $("empBody").addEventListener("click", function(ev){
@@ -2961,6 +3086,7 @@ $("empSave").addEventListener("click", function(){
     rec.position = $("empPos").value.trim();
     rec.hired = $("empHired").value;
     rec.employmentStatus = $("empStatus").value.trim();
+    rec.payrollAccess = $("empPayroll").value === "yes";
   }
   err.textContent = "";
   empDirty = false;
@@ -3693,6 +3819,11 @@ function thisWeek(){
   $("sFrom").value = w[0];
   $("sTo").value = w[1];
 }
+function thisPayPeriod(){
+  var pp = payKeys(dayKey(new Date()));
+  $("sFrom").value = pp[0];
+  $("sTo").value = pp[1];
+}
 
 /* ---------------- ticking clock ---------------- */
 function tick(){
@@ -3898,9 +4029,74 @@ $("btnPin").addEventListener("click", function(){
   });
 });
 
-$("sWeek").addEventListener("click", function(){ thisWeek(); render(); });
+$("sWeek").addEventListener("click", function(){ $("sView").value = "week"; thisWeek(); render(); });
+$("sView").addEventListener("change", function(){
+  if(this.value === "pay") thisPayPeriod(); else thisWeek();
+  render();
+});
 $("sFrom").addEventListener("change", render);
 $("sTo").addEventListener("change", render);
+$("sSubmit").addEventListener("click", function(){
+  var me = currentUser(); if(!me) return;
+  var t = sheetTarget();
+  var from = $("sFrom").value, to = $("sTo").value;
+  if(!from || !to){ toast("Pick the pay period first."); return; }
+  if(to < from){ var sw = from; from = to; to = sw; }
+  var total = 0, list = [];
+  dayRows(t.id, from, to, 4000).forEach(function(row){
+    var work = 0, brk = 0, first = row.entries[0] || null, last = row.entries[row.entries.length - 1] || null;
+    row.entries.forEach(function(x){
+      if(!x.outAt) return;
+      work += workedMs(x);
+      brk += breakMs(x, new Date(x.outAt).getTime());
+    });
+    if(work > 0){
+      total += work;
+      list.push({ date:row.date, inAt:first ? first.inAt : null, outAt:last ? last.outAt : null,
+        workedMs:work, breakMs:brk });
+    }
+  });
+  if(!total){ toast("No completed hours in that pay period."); return; }
+  var existing = (state.payroll || []).filter(function(s){
+    return s.userId === t.id && s.periodStart === from && s.periodEnd === to;
+  })[0] || null;
+  if(existing && existing.status === "submitted"){ toast("That pay period is already with Payroll & Finance."); return; }
+  if(existing && existing.status === "approved"){ toast("That pay period is already approved."); return; }
+  var msg = t.name + " · " + fmtShortDate(from) + " – " + fmtShortDate(to) + " · " + fmtDur(total) +
+    " worked across " + list.length + (list.length === 1 ? " day" : " days") +
+    ". Submit this pay period to Payroll & Finance?";
+  confirmAsk(existing ? "Resubmit payroll hours" : "Submit payroll hours", msg, existing ? "Resubmit" : "Submit").then(function(ok){
+    if(!ok) return;
+    var rec = existing || { id: nextId("p"), userId: t.id, periodStart: from, periodEnd: to };
+    rec.userName = t.name; rec.username = t.username;
+    rec.submittedAt = new Date().toISOString();
+    rec.submittedBy = me.id; rec.submittedByName = me.name;
+    rec.totalWorkedMs = total; rec.totalWorked = fmtDur(total); rec.rows = list;
+    rec.status = "submitted"; rec.decidedAt = null; rec.decidedBy = "";
+    rec.visibleTo = state.users.filter(function(x){ return x.role === "admin" || x.payrollAccess === true; })
+      .map(function(x){ return x.id; });
+    if(!existing) state.payroll.push(rec);
+    render();
+    save().then(function(saved){
+      toast(saved ? "Submitted to Payroll & Finance." : "Submitted here — not confirmed by the server yet; keep this tab open.");
+    });
+  });
+});
+$("payrollList").addEventListener("click", function(ev){
+  var t = ev.target;
+  if(!t.getAttribute) return;
+  var id = t.getAttribute("data-pay"), act = t.getAttribute("data-payact");
+  if(!id || !act) return;
+  var me = currentUser(); if(!me) return;
+  if(!(me.role === "admin" || me.payrollAccess === true)){ toast("Only payroll access can decide this."); return; }
+  var rec = (state.payroll || []).filter(function(s){ return s.id === id; })[0];
+  if(!rec || rec.status !== "submitted"){ toast("That submission is no longer waiting."); return; }
+  rec.status = act === "approved" ? "approved" : "rejected";
+  rec.decidedAt = new Date().toISOString();
+  rec.decidedBy = me.username; rec.decidedByName = me.name;
+  render();
+  save().then(function(ok){ toast(ok ? "Payroll submission " + rec.status + "." : "Not confirmed by the server yet; keep this tab open."); });
+});
 function sheetTarget(){
   var me = currentUser();
   if(me.role !== "admin") return me;
@@ -4488,7 +4684,17 @@ $("teamBody").addEventListener("click", function(ev){
   var t = ev.target;
   if(!t.getAttribute) return;
   var rid = t.getAttribute("data-reset"), tid = t.getAttribute("data-toggle"), sid = t.getAttribute("data-sched"),
-      roid = t.getAttribute("data-role"), did = t.getAttribute("data-del"), lid = t.getAttribute("data-lead");
+      roid = t.getAttribute("data-role"), did = t.getAttribute("data-del"), lid = t.getAttribute("data-lead"),
+      paid = t.getAttribute("data-payacc");
+  if(paid){
+    var pu = state.users.filter(function(x){ return x.id === paid; })[0];
+    var adm = currentUser();
+    if(!pu || !adm || adm.role !== "admin") return;
+    pu.payrollAccess = pu.payrollAccess !== true;
+    save(); render();
+    toast(pu.name + (pu.payrollAccess ? " can now view payroll submissions." : " no longer has payroll access."));
+    return;
+  }
   if(lid){
     var lu = state.users.filter(function(x){ return x.id === lid; })[0];
     var ad = currentUser();
