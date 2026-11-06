@@ -272,6 +272,11 @@ dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);b
 #impResult .pin{font-family:var(--mono);color:var(--amber)}
 #actDlg{width:min(540px,94vw);max-height:92vh;overflow:auto}
 #actBody textarea{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--field-input);color:var(--paper);resize:vertical;font-family:inherit}
+#actBody input[type=file]{color:var(--muted);font-size:.88rem;max-width:100%}
+/* offline report: the optional photo proof preview */
+.off-proof{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:2px 0 12px}
+.off-proof img{display:block;max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);background:var(--inset)}
+.off-proof .btn{padding:4px 10px;font-size:.82rem}
 /* Break 1 / Break 2 / Lunch get a pair of boxes each inside the shift dialogs */
 .pause-edit{border:1px solid var(--line-soft);border-radius:14px;background:var(--inset);padding:12px 14px;margin:0 0 14px}
 .pause-edit > .note{margin:0 0 10px}
@@ -2509,6 +2514,7 @@ function setPause(key){
 function offlineReportDialog(entry, startAt){
   var u = currentUser();
   if(!u || !entry) return;
+  var photoData = "";
   openAct("Report offline time",
     '<p class="note" style="margin:0 0 14px">On file for ' + esc(fmtShortDate(entry.date)) + ': clocked in ' +
       esc(fmtClock(new Date(entry.inAt))) + '. The offline timer starts when you send this report and runs until you tap <strong>Back online</strong>.</p>' +
@@ -2516,8 +2522,15 @@ function offlineReportDialog(entry, startAt){
       '<option value="power">No power</option>' +
       '<option value="internet">No internet</option>' +
       '<option value="both">No power and no internet</option>' +
+      '<option value="other">Others</option>' +
     '</select></label>' +
     '<label class="field"><span>What happened? (required)</span><textarea id="offNote" rows="3" placeholder="e.g. brownout from 9 AM, router restarted"></textarea></label>' +
+    '<label class="field"><span>Photo proof (optional)</span><input type="file" id="offPhoto" accept="image/*"></label>' +
+    '<div class="off-proof hidden" id="offProof">' +
+      '<img id="offProofImg" alt="Offline proof preview">' +
+      '<button class="btn btn-quiet" type="button" id="offProofClear">Remove photo</button>' +
+    '</div>' +
+    '<p class="err" id="offPhotoErr" style="min-height:0;margin:0 0 10px"></p>' +
     '<p class="note" style="margin:0">Your team lead and the site admin receive this report. The time offline is deducted from your hours.</p>',
     [
       { label:"Cancel", cls:"btn-quiet", close:true },
@@ -2525,23 +2538,60 @@ function offlineReportDialog(entry, startAt){
           var cur = openEntry(u.id);
           if(!cur || cur.id !== entry.id) return "You're no longer clocked in on that shift.";
           var kind = body.querySelector("#offKind").value;
-          if(["power","internet","both"].indexOf(kind) < 0) return "Pick what was out.";
+          if(["power","internet","both","other"].indexOf(kind) < 0) return "Pick what was out.";
           var note = body.querySelector("#offNote").value.trim();
           if(note.length < 3) return "Add a short note about what happened.";
           var live = openPause(cur);
           if(live) live.end = startAt;
           cur.pauses.push({ type:"outage", start:startAt, end:null });
-          state.requests.push({
+          var rec = {
             id: nextId("r"), userId: u.id, entryId: cur.id, date: cur.date, kind: "offline",
             outage: kind, note: note, startAt: startAt,
             status: "pending", createdAt: new Date().toISOString(),
             resolvedAt: null, resolvedBy: "", seen: true
-          });
+          };
+          if(photoData) rec.photo = photoData;
+          state.requests.push(rec);
           save(); render();
           toast("Offline reported — your team lead and admin are notified.");
           return null;
         } }
-    ]);
+    ],
+    function(body){
+      var input = body.querySelector("#offPhoto");
+      var wrap = body.querySelector("#offProof");
+      var prev = body.querySelector("#offProofImg");
+      var err = body.querySelector("#offPhotoErr");
+      var clear = body.querySelector("#offProofClear");
+      input.addEventListener("change", function(){
+        var f = this.files && this.files[0]; if(!f) return;
+        if(!/^image\//.test(f.type)){ err.textContent = "Choose an image file for the proof."; this.value = ""; return; }
+        if(f.size > 8 * 1024 * 1024){ err.textContent = "That photo is too big — pick one under 8 MB."; this.value = ""; return; }
+        err.textContent = "";
+        var rd = new FileReader();
+        rd.onload = function(){
+          var img = new Image();
+          img.onload = function(){
+            /* keep the proof readable but small enough to travel with the report */
+            var scale = Math.min(1, 800 / Math.max(img.width, img.height));
+            var cv = document.createElement("canvas");
+            cv.width = Math.max(1, Math.round(img.width * scale));
+            cv.height = Math.max(1, Math.round(img.height * scale));
+            cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            photoData = cv.toDataURL("image/jpeg", .72);
+            prev.src = photoData;
+            wrap.classList.remove("hidden");
+          };
+          img.onerror = function(){ err.textContent = "That file didn't read as a photo."; };
+          img.src = rd.result;
+        };
+        rd.readAsDataURL(f);
+      });
+      clear.addEventListener("click", function(){
+        photoData = ""; input.value = ""; prev.removeAttribute("src");
+        wrap.classList.add("hidden");
+      });
+    });
 }
 function punchOut(){
   var u = currentUser(); if(!u) return;
@@ -2919,7 +2969,7 @@ function renderTeam(){
         ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
         : isOffline
         ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' from ' + esc(fmtClock(new Date(r.startAt))) +
-          ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
+          ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + (proofOk(r.photo) ? ' · photo attached' : '')
         : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
           ((r.reqPauses || []).length ? " · break times" : "")) +
       '<br><span class="muted" style="font-size:.8rem">' + esc(assigneeText(r)) + "</span></span>" +
@@ -3474,7 +3524,7 @@ $("schSummBody").addEventListener("click", function(ev){
 
 /* ---------------- generic action dialog ---------------- */
 var actDlg = $("actDlg");
-function openAct(title, bodyHtml, buttons){
+function openAct(title, bodyHtml, buttons, onOpen){
   $("actTitle").textContent = title;
   $("actBody").innerHTML = bodyHtml;
   $("actErr").textContent = "";
@@ -3505,6 +3555,7 @@ function openAct(title, bodyHtml, buttons){
   });
   actDlg.showModal();
   var first = $("actBody").querySelector("input,textarea"); if(first) first.focus();
+  if(onOpen) onOpen($("actBody"));
 }
 
 /* ---------------- edit log — every change keeps the editor's username ---------------- */
@@ -3725,7 +3776,15 @@ function reviewRequestDialog(reqId){
 /* An outage report: no shift exists, so approving WRITES one - prefilled with
    that day's scheduled hours. Declining only logs, like any other refusal. */
 function outageLabel(kind){
-  return kind === "both" ? "No power and no internet" : kind === "internet" ? "No internet" : "No power";
+  return kind === "both" ? "No power and no internet"
+    : kind === "internet" ? "No internet"
+    : kind === "other" ? "Other issue"
+    : "No power";
+}
+/* Only our own shrunken JPEGs (or a real image data URL) are ever rendered
+   back, so a hand-written request can't smuggle a script into a photo slot. */
+function proofOk(photo){
+  return typeof photo === "string" && /^data:image\/(jpeg|png|webp);base64,/i.test(photo);
 }
 function reviewOutageRequestDialog(reqId){
   function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
@@ -3800,10 +3859,17 @@ function reviewOfflineRequestDialog(reqId){
   var started = r.startAt ? fmtClock(new Date(r.startAt)) : "—";
   var outage = entry ? (entry.pauses || []).filter(function(p){ return p.type === "outage" && p.start === r.startAt; })[0] : null;
   var ran = outage ? Math.max(0, (outage.end ? new Date(outage.end) : new Date()) - new Date(outage.start)) : 0;
+  var proof = proofOk(r.photo) ? r.photo : "";
   openAct("Offline report — " + u.name,
     '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) +
       ' from ' + esc(started) + ' · ' + esc(assigneeText(r)) + '</p>' +
     '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "") + '”</p>' +
+    (proof
+      ? '<div class="off-proof" style="margin:0 0 14px">' +
+          '<img src="' + esc(proof) + '" alt="Offline proof">' +
+          '<a class="btn btn-quiet" href="' + esc(proof) + '" download="offline-proof-' + esc(r.date) + '.jpg">Save photo</a>' +
+        '</div>'
+      : '') +
     '<p class="note" style="margin:0 0 14px">The offline timer is already running, and that time comes off ' +
       esc(u.name) + '’s hours automatically' +
       (outage ? ' (this outage: ' + esc(fmtDur(ran)) + (outage.end ? ')' : ' so far)') : '') +
@@ -4571,7 +4637,7 @@ $("btnOutageReq").addEventListener("click", function(){
   if(!u) return;
   openAct("Report power / internet outage",
     '<label class="field"><span>Day without power or internet (EST)</span><input type="date" id="outDate" value="' + dayKey(new Date()) + '"></label>' +
-    '<label class="field"><span>What was out?</span><select id="outKind"><option value="power">No power</option><option value="internet">No internet</option><option value="both">No power and no internet</option></select></label>' +
+    '<label class="field"><span>What was out?</span><select id="outKind"><option value="power">No power</option><option value="internet">No internet</option><option value="both">No power and no internet</option><option value="other">Others</option></select></label>' +
     '<label class="field"><span>What happened?</span><textarea id="outNote" rows="3" placeholder="e.g. brownout 9 AM to 3 PM, could not clock in"></textarea></label>' +
     '<p class="note" style="margin:0">An admin reviews this before anything changes — approving writes the day onto your timesheet.</p>',
     [
@@ -4580,7 +4646,7 @@ $("btnOutageReq").addEventListener("click", function(){
           var dateKey = body.querySelector("#outDate").value;
           if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return "Pick the day this happened.";
           var kind = body.querySelector("#outKind").value;
-          if(kind !== "power" && kind !== "internet" && kind !== "both") return "Pick what was out.";
+          if(kind !== "power" && kind !== "internet" && kind !== "both" && kind !== "other") return "Pick what was out.";
           var note = body.querySelector("#outNote").value.trim();
           if(note.length < 3) return "Add a short note about what happened.";
           var dup = state.requests.some(function(r){ return r.userId === u.id && r.kind === "outage" && r.date === dateKey && r.status === "pending"; });
