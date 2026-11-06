@@ -378,9 +378,24 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .foot-mark{width:30px;height:30px;flex:none}
 .foot small{color:var(--muted);font-size:13.5px}
 
+/* ---------- top tools: training video, one-pager and the theme switch ----------
+   Pinned together in the top-right corner so the help is reachable on the app
+   itself, right beside the button that flips dark to light. */
+.toptools{
+  position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;z-index:60;
+  display:flex;align-items:center;gap:8px;
+}
+.toptool{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 13px;font:inherit;font-size:.82rem;font-weight:500;line-height:1.4;
+  background:var(--panel);color:var(--muted);text-decoration:none;
+  border:1px solid var(--line);border-radius:999px;
+  box-shadow:var(--shadow);transition:color .12s ease,border-color .12s ease;
+}
+.toptool:hover{color:var(--paper);border-color:var(--btn-hover-line)}
+.toptool__ico{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
 /* ---------- theme switch: dark is the default, this flips to the white one ---------- */
 .theme-toggle{
-  position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;z-index:60;
   display:inline-flex;align-items:center;gap:7px;
   padding:7px 13px;font:inherit;font-size:.82rem;font-weight:500;line-height:1.4;
   background:var(--panel);color:var(--muted);
@@ -389,6 +404,18 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 }
 .theme-toggle:hover{color:var(--paper);border-color:var(--btn-hover-line)}
 .theme-toggle i{width:9px;height:9px;border-radius:50%;background:var(--signal);flex:none}
+/* narrow screens: the labels step out so the three pills never cover the mark */
+@media(max-width:720px){
+  .toptools{gap:6px}
+  .toptool{padding:7px 10px}
+  .toptool span{display:none}
+}
+@media(max-width:420px){
+  .toptools{gap:5px}
+  .toptool{padding:6px 8px}
+  .theme-toggle{padding:6px 9px}
+  .theme-toggle span{display:none}
+}
 /* demo mode (no backend): a slim banner, plus the demo accounts on the sign-in */
 .demobar{
   margin:0 0 14px;padding:9px 16px;border-radius:999px;text-align:center;
@@ -496,7 +523,17 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
 </script>
 </head>
 <body>
-<button class="theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
+<div class="toptools">
+  <a class="toptool" href="Sundial_Solstice_How_To.mp4" target="_blank" rel="noopener noreferrer" title="Watch the training video">
+    <svg class="toptool__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5-11-6.5z"/></svg>
+    <span>Training video</span>
+  </a>
+  <a class="toptool" href="Sundial%20Solstice%20How%20to%20Use%20(One-Pager).pdf" target="_blank" rel="noopener noreferrer" title="View the one-pager">
+    <svg class="toptool__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>
+    <span>One-pager</span>
+  </a>
+  <button class="theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
+</div>
 <div class="wrap">
 
   <div class="demobar hidden" id="demoBar" role="status">Demo mode — no server connected. Everything here is stored in this browser.</div>
@@ -612,8 +649,9 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <div class="totals">
           <div><span>Days worked</span><strong id="tDays">0</strong></div>
           <div><span>Absent</span><strong id="tAbsent">0</strong></div>
-          <div><span>Break time</span><strong id="tBreak">0:00</strong></div>
-          <div><span>Offline</span><strong id="tOff">0:00</strong></div>
+          <div><span>Breaks (paid)</span><strong id="tBreak">0:00</strong></div>
+          <div><span>Lunch (unpaid)</span><strong id="tLunch">0:00</strong></div>
+          <div><span>Offline (unpaid)</span><strong id="tOff">0:00</strong></div>
           <div><span>Total worked</span><strong id="tWorked">0:00</strong></div>
         </div>
         <div class="scroller">
@@ -2254,10 +2292,19 @@ function pauseMs(e, key, now){
   return t;
 }
 function breakMs(e, now){ return pauseMs(e, null, now); }
+/* Which pauses come off the clock. Breaks and bio breaks are paid, so they
+   stay in the total; lunch and time offline are not paid, so they come out. */
+var UNPAID = ["lunch", "outage"];
+function unpaidMs(e, now){
+  return UNPAID.reduce(function(t, key){ return t + pauseMs(e, key, now); }, 0);
+}
+function paidBreakMs(e, now){
+  return breakMs(e, now) - unpaidMs(e, now);
+}
 function workedMs(e, now){
   var start = new Date(e.inAt).getTime();
   var end = e.outAt ? new Date(e.outAt).getTime() : (now || Date.now());
-  return Math.max(0, end - start - breakMs(e, now));
+  return Math.max(0, end - start - unpaidMs(e, now));
 }
 function entriesFor(uid){
   return state.entries.filter(function(e){ return e.userId === uid; })
@@ -2445,12 +2492,56 @@ function setPause(key){
     toast(def.label + " ended — back on the clock.");
     return;
   }
+  /* Offline is different from the other pauses: it has to be reported, and
+     the report goes to the team lead and the site admin. The timer only
+     starts once the report is sent (see offlineReportDialog). */
+  if(key === "outage"){ offlineReportDialog(e, now.toISOString()); return; }
   if(live) live.end = now.toISOString();
   /* Break 1, Break 2 and Lunch are one use per shift. Bio breaks and outages
      can be taken again and again - a person may need more than one. */
   if(usedPause(e, key) && key !== "outage" && key !== "bio"){ toast(def.label + " was already taken this shift."); save(); render(); return; }
   e.pauses.push({ type: key, start: now.toISOString(), end: null });
   save(); render(); toast(def.label + " started at " + fmtClock(now));
+}
+/* Filling this in is required before the offline timer starts. Submitting ends
+   whatever pause was running, opens an outage pause from the moment Offline was
+   tapped, and files an "offline" request for the lead/admin to acknowledge. */
+function offlineReportDialog(entry, startAt){
+  var u = currentUser();
+  if(!u || !entry) return;
+  openAct("Report offline time",
+    '<p class="note" style="margin:0 0 14px">On file for ' + esc(fmtShortDate(entry.date)) + ': clocked in ' +
+      esc(fmtClock(new Date(entry.inAt))) + '. The offline timer starts when you send this report and runs until you tap <strong>Back online</strong>.</p>' +
+    '<label class="field"><span>What was out?</span><select id="offKind">' +
+      '<option value="power">No power</option>' +
+      '<option value="internet">No internet</option>' +
+      '<option value="both">No power and no internet</option>' +
+    '</select></label>' +
+    '<label class="field"><span>What happened? (required)</span><textarea id="offNote" rows="3" placeholder="e.g. brownout from 9 AM, router restarted"></textarea></label>' +
+    '<p class="note" style="margin:0">Your team lead and the site admin receive this report. The time offline is deducted from your hours.</p>',
+    [
+      { label:"Cancel", cls:"btn-quiet", close:true },
+      { label:"Submit report", cls:"btn-in", run:function(body){
+          var cur = openEntry(u.id);
+          if(!cur || cur.id !== entry.id) return "You're no longer clocked in on that shift.";
+          var kind = body.querySelector("#offKind").value;
+          if(["power","internet","both"].indexOf(kind) < 0) return "Pick what was out.";
+          var note = body.querySelector("#offNote").value.trim();
+          if(note.length < 3) return "Add a short note about what happened.";
+          var live = openPause(cur);
+          if(live) live.end = startAt;
+          cur.pauses.push({ type:"outage", start:startAt, end:null });
+          state.requests.push({
+            id: nextId("r"), userId: u.id, entryId: cur.id, date: cur.date, kind: "offline",
+            outage: kind, note: note, startAt: startAt,
+            status: "pending", createdAt: new Date().toISOString(),
+            resolvedAt: null, resolvedBy: "", seen: true
+          });
+          save(); render();
+          toast("Offline reported — your team lead and admin are notified.");
+          return null;
+        } }
+    ]);
 }
 function punchOut(){
   var u = currentUser(); if(!u) return;
@@ -2588,6 +2679,9 @@ function renderSheet(me){
         if(r.kind === "schedule"){
           toast(r.status === "approved" ? "Your schedule change was approved."
                                         : "Your schedule change was declined.");
+        } else if(r.kind === "offline"){
+          toast(r.status === "approved" ? "Your offline report for " + fmtShortDate(r.date) + " was acknowledged."
+                                        : "Your offline report for " + fmtShortDate(r.date) + " was declined.");
         } else {
           toast(r.status === "approved" ? "Your correction for " + fmtShortDate(r.date) + " was approved."
                                         : "Your correction for " + fmtShortDate(r.date) + " was declined.");
@@ -2607,7 +2701,7 @@ function renderSheet(me){
   $("sheetHeadRow").innerHTML = "<th>Date</th><th>Status</th><th>Clock in</th><th>Clock out</th>" +
     PAUSES.map(function(p){ return '<th class="num">' + esc(p.label) + "</th>"; }).join("") +
     '<th class="num">Worked</th><th></th>';
-  var totW = 0, totB = 0, totO = 0, days = {}, absent = 0;
+  var totW = 0, totB = 0, totO = 0, totLunch = 0, days = {}, absent = 0;
   rows.forEach(function(row){
     var es = row.entries, first = es[0] || null;
     var workMs = 0, open = false;
@@ -2616,8 +2710,9 @@ function renderSheet(me){
       var ref = x.outAt ? new Date(x.outAt).getTime() : Date.now();
       if(x.outAt){ workMs += workedMs(x); totW += workedMs(x); days[row.date] = 1; }
       else open = true;
-      totB += breakMs(x, ref) - pauseMs(x, "outage", ref);
+      totB += paidBreakMs(x, ref);
       totO += pauseMs(x, "outage", ref);
+      totLunch += pauseMs(x, "lunch", ref);
       PAUSES.forEach(function(p, j){ pauseTot[j] += pauseMs(x, p.key, ref); });
     });
     if(row.status.code === "absent") absent++;
@@ -2661,6 +2756,7 @@ function renderSheet(me){
   $("tDays").textContent = Object.keys(days).length;
   $("tAbsent").textContent = absent;
   $("tBreak").textContent = fmtDur(totB);
+  $("tLunch").textContent = fmtDur(totLunch);
   $("tOff").textContent = fmtDur(totO);
   $("tWorked").textContent = fmtDur(totW);
 
@@ -2813,13 +2909,17 @@ function renderTeam(){
     var u = userOf(r.userId);
     var isSched = r.kind === "schedule";
     var isOutage = r.kind === "outage";
+    var isOffline = r.kind === "offline";
     var li = document.createElement("li");
-    li.innerHTML = '<span class="p-when readout"' + (isSched ? ' style="width:7.6em"' : "") + '>' +
-      (isSched ? "Schedule" : isOutage ? "Outage" : esc(fmtShortDate(r.date))) + '</span>' +
+    li.innerHTML = '<span class="p-when readout"' + ((isSched || isOffline) ? ' style="width:7.6em"' : "") + '>' +
+      (isSched ? "Schedule" : isOutage ? "Outage" : isOffline ? "Offline" : esc(fmtShortDate(r.date))) + '</span>' +
       '<span class="p-what">' + (isSched
         ? esc(u.name) + ' wants a new schedule'
         : isOutage
         ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
+        : isOffline
+        ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' from ' + esc(fmtClock(new Date(r.startAt))) +
+          ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
         : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
           ((r.reqPauses || []).length ? " · break times" : "")) +
       '<br><span class="muted" style="font-size:.8rem">' + esc(assigneeText(r)) + "</span></span>" +
@@ -3475,6 +3575,8 @@ function auditHtml(r){
     : r.action === "sched-decline" ? "Declined a schedule change"
     : r.action === "delete-user" ? "Removed an account"
     : r.action === "outage" ? "Approved an outage credit"
+    : r.action === "offline-approve" ? "Acknowledged an offline report"
+    : r.action === "offline-decline" ? "Declined an offline report"
     : "Edited a shift";
   var detail = (r.changes || []).length ? " — " + r.changes.join("; ") : "";
   return { who:who, what:what, detail:detail };
@@ -3499,10 +3601,10 @@ function pendingSchedReq(userId){
 /* ---------------- shift edit requests ---------------- */
 function findEntry(id){ return state.entries.filter(function(e){ return e.id === id; })[0] || null; }
 function pendingReqFor(entryId){
-  return state.requests.filter(function(r){ return r.entryId === entryId && r.status === "pending"; })[0] || null;
+  return state.requests.filter(function(r){ return r.entryId === entryId && r.kind === "shift" && r.status === "pending"; })[0] || null;
 }
 function lastReqFor(entryId){
-  var list = state.requests.filter(function(r){ return r.entryId === entryId; });
+  var list = state.requests.filter(function(r){ return r.entryId === entryId && r.kind === "shift"; });
   return list.length ? list[list.length-1] : null;
 }
 function submitRequestDialog(entry){
@@ -3552,6 +3654,7 @@ function reviewRequestDialog(reqId){
   if(!r) return;
   if(r.kind === "schedule") return reviewSchedRequestDialog(reqId);
   if(r.kind === "outage") return reviewOutageRequestDialog(reqId);
+  if(r.kind === "offline") return reviewOfflineRequestDialog(reqId);
 
   var u = userOf(r.userId);
   var entry = findEntry(r.entryId);
@@ -3684,6 +3787,55 @@ function reviewOutageRequestDialog(reqId){
           toast("Outage credited — logged as @" + (who ? who.username : "admin") + ".");
           return null;
         } }]));
+}
+/* An offline report filed from the Offline button. The timer is already
+   running (and already deducted), so approving is an acknowledgement only -
+   it writes nothing onto the timesheet. Declining is just as easy to see. */
+function reviewOfflineRequestDialog(reqId){
+  function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
+  var r = getReq();
+  if(!r) return;
+  var u = userOf(r.userId);
+  var entry = findEntry(r.entryId);
+  var started = r.startAt ? fmtClock(new Date(r.startAt)) : "—";
+  var outage = entry ? (entry.pauses || []).filter(function(p){ return p.type === "outage" && p.start === r.startAt; })[0] : null;
+  var ran = outage ? Math.max(0, (outage.end ? new Date(outage.end) : new Date()) - new Date(outage.start)) : 0;
+  openAct("Offline report — " + u.name,
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) +
+      ' from ' + esc(started) + ' · ' + esc(assigneeText(r)) + '</p>' +
+    '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "") + '”</p>' +
+    '<p class="note" style="margin:0 0 14px">The offline timer is already running, and that time comes off ' +
+      esc(u.name) + '’s hours automatically' +
+      (outage ? ' (this outage: ' + esc(fmtDur(ran)) + (outage.end ? ')' : ' so far)') : '') +
+      '. Acknowledging just marks the report as seen — no hours are changed.</p>',
+    [
+      { label:"Decline", cls:"btn-danger", run:function(){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var who = currentUser();
+          req.status = "declined"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          logEdit(null, "offline-decline", ["declined @" + u.username + "'s offline report for " +
+            fmtShortDate(req.date) + (req.note ? " — " + req.note : "")],
+            { userId:req.userId, date:req.date, person:u.name });
+          save(); render(); toast("Offline report declined — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } },
+      { label:"Acknowledge", cls:"btn-in", run:function(){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var who = currentUser();
+          req.status = "approved"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          logEdit(null, "offline-approve", ["acknowledged @" + u.username + "'s offline report for " +
+            fmtShortDate(req.date) + " (" + outageLabel(req.outage).toLowerCase() + ")"],
+            { userId:req.userId, date:req.date, person:u.name });
+          save(); render(); toast("Offline report acknowledged — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } }
+    ]);
 }
 /* A request to change a schedule: the admin reads it side by side and then
    approves or declines, and whichever they do is written into the history. */
@@ -3847,7 +3999,7 @@ function tick(){
     var live = openPause(e);
     el.firstChild.nodeValue = fmtDur(workedMs(e, now.getTime()));
     note.textContent = live ? pauseDef(live.type).label + " running " + fmtDur(now - new Date(live.start))
-                            : "Worked so far, breaks taken out";
+                            : "Worked so far, lunch and offline taken out";
   } else {
     var done = entriesFor(u.id).filter(function(x){ return x.date === dayKey(now) && x.outAt; });
     var total = done.reduce(function(s,x){ return s + workedMs(x); }, 0);
@@ -3890,7 +4042,7 @@ function toCsv(dayList){
   var head = ["Name","Username","Date","Day","Scheduled in","Scheduled out","Clock in","Clock out",
               "Late (min)","Early out (min)"];
   PAUSES.forEach(function(p){ head.push(p.label + " (min)"); });
-  head.push("Total break (min)","Worked (hours)","Status","Time zone","Edited by");
+  head.push("Total paid break (min)","Worked (hours)","Status","Time zone","Edited by");
   var rows = [head];
   dayList.forEach(function(row){
     var u = row.u || userOf(row.userId);
@@ -3901,7 +4053,7 @@ function toCsv(dayList){
     es.forEach(function(e){
       var ref = e.outAt ? new Date(e.outAt).getTime() : Date.now();
       if(e.outAt) work += workedMs(e); else open = true;
-      brk += breakMs(e, ref);
+      brk += paidBreakMs(e, ref);
       PAUSES.forEach(function(p, j){ pauses[j] += pauseMs(e, p.key, ref); });
       var ed = lastEditorOf(e.id);
       if(ed) editors[ed] = 1;
@@ -4048,7 +4200,7 @@ $("sSubmit").addEventListener("click", function(){
     row.entries.forEach(function(x){
       if(!x.outAt) return;
       work += workedMs(x);
-      brk += breakMs(x, new Date(x.outAt).getTime());
+      brk += paidBreakMs(x, new Date(x.outAt).getTime());
     });
     if(work > 0){
       total += work;
@@ -4237,7 +4389,7 @@ function paintSheet(ctx, d, dry){
   var tw = W - PAD * 2, th = 66;
   box(PAD, y, tw, th, "#F7F9FB", 10, "fill");
   box(PAD, y, tw, th, "#E4EAF0", 10, "stroke");
-  var tk = [["Days worked", d.days], ["Absent", d.absent], ["Break time", d.brk], ["Total worked", d.worked]];
+  var tk = [["Days worked", d.days], ["Absent", d.absent], ["Paid breaks", d.brk], ["Total worked", d.worked]];
   for(i = 0; i < tk.length; i++){
     var tx = PAD + (tw / tk.length) * i + 20;
     say(tk[i][0], tx, y + 26, "400 12px " + PNG_SANS, "#5B6673");
