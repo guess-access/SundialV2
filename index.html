@@ -44,7 +44,17 @@ document.documentElement.setAttribute("data-theme",__t);
     <nav class="nav__links">
       <time class="nav__clock" id="navClock" title="US Eastern time">…</time>
     </nav>
-    <button class="btn btn--ghost btn--sm theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
+    <div class="nav__tools">
+      <a class="btn btn--ghost btn--sm nav__res" href="Sundial_Solstice_How_To.mp4" target="_blank" rel="noopener noreferrer" title="Watch the training video">
+        <svg class="nav__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5-11-6.5z"/></svg>
+        <span>Training video</span>
+      </a>
+      <a class="btn btn--ghost btn--sm nav__res" href="Sundial%20Solstice%20How%20to%20Use%20(One-Pager).pdf" target="_blank" rel="noopener noreferrer" title="View the one-pager">
+        <svg class="nav__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>
+        <span>One-pager</span>
+      </a>
+      <button class="btn btn--ghost btn--sm theme-toggle" id="themeBtn" type="button" aria-pressed="true"><i aria-hidden="true"></i><span id="themeLabel">Dark</span></button>
+    </div>
   </div>
 </header>
 
@@ -111,14 +121,6 @@ document.documentElement.setAttribute("data-theme",__t);
         <p class="heroauth__foot">Need an account? Ask your admin to add you.</p>
       </form>
     </div>
-  </div>
-</section>
-
-<!-- ============ TRAINING RESOURCES ============ -->
-<section class="hero" style="padding-top:0">
-  <div class="wrap" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center">
-    <a class="btn" href="Sundial_Solstice_How_To.mp4" target="_blank" rel="noopener noreferrer">Watch the training video</a>
-    <a class="btn btn--ghost" href="Sundial%20Solstice%20How%20to%20Use%20(One-Pager).pdf" target="_blank" rel="noopener noreferrer">View the one-pager</a>
   </div>
 </section>
 

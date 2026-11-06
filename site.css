@@ -157,9 +157,21 @@ h1,h2,h3,h4{font-family:var(--sans);line-height:1.08;letter-spacing:-.02em;margi
 .btn--lime:hover{transform:translateY(-2px);background:#b3e043}
 .btn--sm{padding:10px 18px;font-size:14px}
 .nav .btn{margin-left:4px}
+/* training video + one-pager ride at the top, beside the theme switch */
+.nav__tools{display:flex;align-items:center;gap:8px;margin-left:6px}
+.nav__tools .btn{margin-left:0}
+.nav__res{gap:7px}
+.nav__ico{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
 @media(max-width:880px){
   .nav__links a:not(.btn){display:none}
+  .nav__clock{display:none}
   .nav__in{gap:20px}
+  .nav__tools{gap:6px}
+  .nav__res{padding:9px 13px;font-size:13px}
+}
+@media(max-width:640px){
+  .nav__res span{display:none}
+  .nav__res{padding:9px 11px}
 }
 /* Below ~440px the row cannot hold the mark, the theme switch and the CTA
    side by side, so the word steps out and the mark carries the brand alone. */
