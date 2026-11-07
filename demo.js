@@ -147,17 +147,65 @@ var Demo = (function () {
       return u.id !== exceptId && u.role === "admin" && u.active !== false;
     });
   }
-  function pausesOnlyGrew(existing, item) {
-    var before = Array.isArray(existing.pauses) ? existing.pauses : [];
-    var after = Array.isArray(item.pauses) ? item.pauses : [];
-    if (after.length < before.length) return false;
-    for (var i = 0; i < before.length; i++) {
-      var a = before[i], b = after[i];
-      if (!b) return false;
-      if (a.type !== b.type || a.start !== b.start) return false;
-      if (a.end && a.end !== b.end) return false;
+  /* Breaks only ever grow: what is already on file keeps its times, a still-open
+     break gets closed by the person who started it, and a run the server has
+     never seen is appended. Nothing already recorded is moved or removed. */
+  function mergePauses(before, after) {
+    var out = [], i, j, k;
+    for (i = 0; i < before.length; i++) out.push(before[i]);
+    for (j = 0; j < after.length; j++) {
+      var b = after[j];
+      if (!b || typeof b !== "object" || !b.type) continue;
+      var at = -1;
+      for (k = 0; k < out.length; k++) {
+        if (out[k] && out[k].type === b.type && out[k].start === b.start) { at = k; break; }
+      }
+      if (at < 0) {
+        for (k = 0; k < out.length; k++) {
+          if (out[k] && out[k].type === b.type && !out[k].end) { at = k; break; }
+        }
+      }
+      if (at < 0) { out.push(b); continue; }
+      var cur = out[at];
+      if (!cur.end && b.end) {
+        var closed = {};
+        Object.keys(cur).forEach(function (key) { closed[key] = cur[key]; });
+        closed.end = b.end;
+        out[at] = closed;
+      }
     }
-    return true;
+    return out;
+  }
+  /* Fold a person's own save over what is already on file instead of turning it
+     away: an admin may have corrected this shift earlier today, and the clock
+     still has to work. The correction and the change history stay put. */
+  function mergeOwnEntry(existing, item) {
+    var out = {};
+    Object.keys(item).forEach(function (k) { out[k] = item[k]; });
+    out.id = existing.id;
+    out.userId = existing.userId;
+    if (existing.date) out.date = existing.date;
+    out.inAt = existing.inAt;
+    if (existing.outAt) out.outAt = existing.outAt;
+    out.audit = Array.isArray(existing.audit) ? existing.audit : [];
+    out.pauses = mergePauses(
+      Array.isArray(existing.pauses) ? existing.pauses : [],
+      Array.isArray(item.pauses) ? item.pauses : []);
+    return out;
+  }
+  /* Two views of the change history, joined by record id. */
+  function mergeAudit(serverList, clientList) {
+    var out = Array.isArray(serverList) ? serverList.slice() : [];
+    var seen = {}, i, j;
+    for (i = 0; i < out.length; i++) if (out[i] && out[i].id) seen[out[i].id] = 1;
+    var add = Array.isArray(clientList) ? clientList : [];
+    for (j = 0; j < add.length; j++) {
+      var rec = add[j];
+      if (!rec || typeof rec !== "object" || !rec.id || seen[rec.id]) continue;
+      seen[rec.id] = 1;
+      out.push(rec);
+    }
+    return out;
   }
   /* A team lead may act on people assigned to them - anyone whose leadId points
      at them - short of account lifecycle and settings. Anything else stays admin. */
@@ -247,14 +295,13 @@ var Demo = (function () {
       if (!isAdmin && item.userId !== self.id && !leadFor(db, self, item.userId)) {
         deny(403, "You can only change your own shifts.");
       }
-      if (!isAdmin && !leadFor(db, self, item.userId)) {
-        var editMsg = "That shift is already recorded. Send a correction request for an admin to approve.";
-        if (existing) {
-          if (String(item.inAt) !== String(existing.inAt)) deny(403, editMsg);
-          if (existing.outAt && String(item.outAt || "") !== String(existing.outAt)) deny(403, editMsg);
-          if (!pausesOnlyGrew(existing, item)) deny(403, editMsg);
+      if (!isAdmin && item.userId === self.id) {
+        /* the clock keeps working even after an admin corrected this shift:
+           the correction and the history stay, the new punch folds in on top */
+        if (existing) item = mergeOwnEntry(existing, item);
+        else if (Array.isArray(item.audit) && item.audit.length) {
+          deny(403, "Only an admin writes the change history.");
         }
-        if (Array.isArray(item.audit) && item.audit.length) deny(403, "Only an admin writes the change history.");
       }
       stored = {};
       Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
@@ -290,7 +337,9 @@ var Demo = (function () {
       var reporterId = existing ? existing.userId : item.userId;
       var mine = reporterId === self.id;
       var decide = false;
-      if (!isAdmin && !mine) {
+      /* a team lead may file time off for the people they lead - always pending */
+      var onBehalf = !existing && !mine && item.kind === "leave" && leadFor(db, self, reporterId);
+      if (!isAdmin && !mine && !onBehalf) {
         if (!existing) deny(403, "You can only change your own requests.");
         if (leadFor(db, self, reporterId)) {
           var createdAt = new Date(existing.createdAt || 0).getTime();
@@ -375,13 +424,33 @@ var Demo = (function () {
         if (!auditOnly || !Array.isArray(patch.settings.audit)) { var e2 = new Error("Only an admin can change settings."); e2.status = 403; throw e2; }
         var merged = {};
         Object.keys(so).forEach(function (k3) { merged[k3] = so[k3]; });
-        merged.audit = patch.settings.audit.slice(-MAX_AUDIT);
+        merged.audit = mergeAudit(so.audit, patch.settings.audit).slice(-MAX_AUDIT);
         db.settings = merged;
       } else {
         if (typeof patch.settings !== "object" || Array.isArray(patch.settings)) bad();
         var next = {};
         Object.keys(patch.settings).forEach(function (k) { next[k] = patch.settings[k]; });
         if (Array.isArray(next.audit) && next.audit.length > MAX_AUDIT) next.audit = next.audit.slice(-MAX_AUDIT);
+        /* announcements are the admin's page, shaped before they are stored */
+        if (next.announcements !== undefined) {
+          var src = Array.isArray(next.announcements) ? next.announcements : [];
+          var clean = [], ai;
+          for (ai = 0; ai < src.length && clean.length < 50; ai++) {
+            var an = src[ai];
+            if (!an || typeof an !== "object" || typeof an.id !== "string" || !an.id) continue;
+            clean.push({
+              id: an.id,
+              kind: an.kind === "banner" ? "banner" : "note",
+              title: String(an.title || "").slice(0, 120),
+              body: String(an.body || "").slice(0, 2000),
+              by: self.username,
+              byName: self.name,
+              createdAt: typeof an.createdAt === "string" ? an.createdAt : "",
+              updatedAt: typeof an.updatedAt === "string" ? an.updatedAt : ""
+            });
+          }
+          next.announcements = clean;
+        }
         db.settings = next;
       }
     }

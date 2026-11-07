@@ -196,9 +196,6 @@ input,select{font:inherit}
 .nav{display:flex;gap:6px;margin:0 0 18px;flex-wrap:wrap}
 .tab{padding:8px 14px;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer}
 .tab:hover{color:var(--paper)}
-.nav-leave{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;border:1px solid var(--signal);color:var(--signal);text-decoration:none;font-weight:500;transition:background .12s ease}
-.nav-leave:hover{background:var(--panel-2)}
-.nav-leave:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 .tab[aria-selected="true"]{background:var(--panel-2);border-color:var(--line);color:var(--paper);font-weight:500}
 
 /* ---------- status ---------- */
@@ -238,7 +235,7 @@ input,select{font:inherit}
 .empty{color:var(--muted);font-size:.93rem;margin:0;padding:6px 0}
 .scroller{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:.93rem;min-width:600px}
-#sheetTable{min-width:900px}
+#sheetTable{min-width:1060px}
 /* one day, one status: on time, late, early out, absent */
 .st{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:500;
   white-space:nowrap;border:1px solid transparent}
@@ -246,6 +243,7 @@ table{width:100%;border-collapse:collapse;font-size:.93rem;min-width:600px}
 .st-late,.st-early{color:var(--amber);border-color:var(--amber-line);background:var(--amber-fill)}
 .st-absent{color:var(--alert);border-color:var(--alert-line);background:var(--alert-fill)}
 .st-open{color:var(--lunch);border-color:var(--lunch-line);background:var(--lunch-fill)}
+.st-leave{color:var(--lunch);border-color:var(--lunch-line);background:var(--lunch-fill);font-weight:700}
 .st-off{color:var(--muted);border-color:var(--line-soft)}
 th,td{text-align:left;padding:10px 12px;border-top:1px solid var(--line-soft);white-space:nowrap}
 th{color:var(--muted);font-weight:500;font-size:.85rem;border-top:0}
@@ -292,6 +290,24 @@ dialog{border:1px solid var(--line);background:var(--panel);color:var(--paper);b
 .reqtag.pending{color:var(--amber);border-color:var(--amber-line);background:var(--amber-fill)}
 .reqtag.declined{color:var(--alert);border-color:var(--alert-line);background:var(--alert-fill)}
 .reqtag.approved{color:var(--signal);border-color:var(--signal-line);background:var(--signal-fill)}
+/* ---- announcements & banners: one strip per post, read by everybody ---- */
+.ann{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--signal-line);background:var(--signal-fill);
+  border-radius:14px;padding:12px 14px;margin:0 0 14px}
+.ann--banner{border-color:var(--amber-line);background:var(--amber-fill)}
+.ann__body{flex:1;min-width:0}
+.ann__title{margin:0 0 3px;font-weight:700;font-size:.95rem}
+.ann__text{margin:0;font-size:.88rem;line-height:1.5;white-space:pre-wrap}
+.ann__meta{margin:7px 0 0;font-size:.76rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ann__meta button{background:none;border:0;padding:0;color:var(--signal);font:inherit;text-decoration:underline;cursor:pointer}
+.ann__x{flex:none;background:none;border:1px solid var(--line);border-radius:8px;color:var(--muted);
+  width:26px;height:26px;line-height:1;cursor:pointer;font-size:1rem}
+.ann__x:hover{color:var(--paper);border-color:var(--line)}
+/* the day dialog: what happened that day, then the time-off form */
+#dayLogs{margin:0 0 12px}
+.day-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);
+  padding-top:9px;margin-top:4px;font-size:.9rem}
+.day-total strong{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.ann-err{color:var(--alert);font-size:.9rem;margin:0 0 10px;min-height:1.2em}
 dialog::backdrop{background:var(--scrim)}
 dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .dlg-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
@@ -467,6 +483,10 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sch-late{background:var(--amber-fill)}
 .sch-absent{background:var(--alert-fill)}
 .sch-open{background:var(--lunch-fill)}
+.sch-leave{background:var(--lunch-fill)}
+/* every tile opens the day: its logs, its total, and the time-off form */
+td.sch-day,.sch-cell{cursor:pointer}
+td.sch-day:hover,.sch-cell:hover{box-shadow:inset 0 0 0 2px var(--signal-line)}
 /* staff month calendar: same statuses as borders instead of a row */
 .sch-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
 .sch-dow{font-size:.7rem;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;letter-spacing:.06em;text-transform:uppercase}
@@ -474,15 +494,17 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .sch-cell{min-height:64px;border:1px solid var(--line-soft);border-radius:10px;padding:6px 8px;background:var(--inset)}
 .sch-cell b{display:block;font-size:.9rem;font-weight:700}
 .sch-cell span{display:block;font-size:.7rem;color:var(--muted)}
-.sch-b-present,.sch-b-late,.sch-b-absent{border-width:2px}
+.sch-b-present,.sch-b-late,.sch-b-absent,.sch-b-leave{border-width:2px}
 .sch-b-present{border-color:var(--signal);background:var(--signal-fill)}
 .sch-b-late{border-color:var(--amber);background:var(--amber-fill)}
 .sch-b-absent{border-color:var(--alert);background:var(--alert-fill)}
+.sch-b-leave{border-color:var(--lunch);background:var(--lunch-fill)}
 .sch-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.82rem;color:var(--muted)}
 .sch-legend i{display:inline-block;width:11px;height:11px;border-radius:4px;border:2px solid;margin-right:7px;vertical-align:-1px}
 .sch-lg-present{border-color:var(--signal);background:var(--signal)}
 .sch-lg-late{border-color:var(--amber);background:var(--amber)}
 .sch-lg-absent{border-color:var(--alert);background:var(--alert)}
+.sch-lg-leave{border-color:var(--lunch);background:var(--lunch)}
 /* staff screens read summary first, calendar second */
 #vSchedules.summ-first{display:flex;flex-direction:column}
 #vSchedules.summ-first #schSummWrap{order:1}
@@ -503,7 +525,6 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
   .block,.status,.auth-card{padding:15px}
   .topbar{gap:10px}
   .tab{padding:7px 12px;font-size:.9rem}
-  .nav-leave{margin-left:0}
   .toolbar{gap:8px}
   .toolbar .field{flex:1 1 100%}
   .toolbar .btn{flex:1 1 auto}
@@ -605,8 +626,10 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
       <button class="tab hidden" role="tab" data-view="schedules" aria-selected="false" id="tabSched">Schedules</button>
-      <a class="nav-leave" id="btnLeave" href="https://cmph48dib0036y043ztgjjk9i.zapier.app/page" target="_blank" rel="noopener noreferrer">Leave Request Form <span aria-hidden="true">↗</span></a>
     </div>
+
+    <!-- announcements & banners: posted by an admin, read by everyone -->
+    <div id="annBanner" class="hidden"></div>
 
     <!-- clock view -->
     <div id="vClock">
@@ -657,6 +680,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <div><span>Breaks (paid)</span><strong id="tBreak">0:00</strong></div>
           <div><span>Lunch (unpaid)</span><strong id="tLunch">0:00</strong></div>
           <div><span>Offline (unpaid)</span><strong id="tOff">0:00</strong></div>
+          <div><span>Paid leave</span><strong id="tLeave">0:00</strong></div>
           <div><span>Total worked</span><strong id="tWorked">0:00</strong></div>
         </div>
         <div class="scroller">
@@ -688,7 +712,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
     <!-- team view -->
     <div id="vTeam" class="hidden">
       <div class="panel block" style="margin-bottom:16px">
-        <h2>Edit requests <span class="muted" id="reqBadge" style="font-weight:400"></span></h2>
+        <h2>Requests <span class="muted" id="reqBadge" style="font-weight:400"></span></h2>
         <ul class="punches" id="reqList"></ul>
         <p class="empty hidden" id="reqEmpty">No pending requests.</p>
       </div>
@@ -709,6 +733,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         </div>
         <div class="toolbar" id="teamToolbar" style="margin:18px 0 0">
           <button class="btn" id="tAdd">Add a person</button>
+          <button class="btn" id="tAnn">Announcements &amp; banners</button>
           <button class="btn btn-in" id="tImport">Import from CSV</button>
           <button class="btn" id="tExport">Export every timesheet</button>
           <button class="btn" id="tLog">Export every punch log</button>
@@ -720,11 +745,6 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
     </div>
     <!-- schedules view: the whole month, everyone, hours against plan -->
     <div id="vSchedules" class="hidden">
-      <div class="emp-head">
-        <p class="emp-kicker">Roster</p>
-        <h2 id="schTitle">Schedules</h2>
-        <p id="schLede">Every rostered day of the month, with hours worked against it. Pick a name to change their weekly pattern.</p>
-      </div>
       <div class="panel block" style="margin-bottom:16px" id="schGridWrap">
         <div class="sch-nav">
           <button class="btn btn-quiet" id="schPrev" type="button" style="padding:7px 13px;font-size:.85rem">← Prev</button>
@@ -743,15 +763,25 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
               <span><i class="sch-lg-present"></i>Present</span>
               <span><i class="sch-lg-late"></i>Late</span>
               <span><i class="sch-lg-absent"></i>Absent</span>
+              <span><i class="sch-lg-leave"></i>On leave</span>
             </div>
           </div>
         </div>
       </div>
       <div class="panel block" style="margin-bottom:16px" id="schSummWrap">
-        <div class="emp-label"><span>Attendance summary</span><span id="schSummLabel"></span></div>
+        <div class="emp-label"><span id="schSummTitle">Attendance summary</span><span id="schSummLabel"></span></div>
+        <div class="totals hidden" id="schKpis">
+          <div><span>People</span><strong id="kPeople">0</strong></div>
+          <div><span>Worked (h)</span><strong id="kWorked">0</strong></div>
+          <div><span>On break (min)</span><strong id="kBreak">0</strong></div>
+          <div><span>Lunch (min)</span><strong id="kLunch">0</strong></div>
+          <div><span>Offline (min)</span><strong id="kOff">0</strong></div>
+          <div><span>Leave days</span><strong id="kLeave">0</strong></div>
+          <div><span>Absent days</span><strong id="kAbsent">0</strong></div>
+        </div>
         <div class="scroller">
           <table>
-            <thead><tr><th>Person</th><th class="num">Sched hrs</th><th class="num">Worked hrs</th><th class="num">Days</th><th class="num">Absent</th><th class="num">Late</th><th></th></tr></thead>
+            <thead><tr id="schSummHead"><th>Person</th><th class="num">Sched hrs</th><th class="num">Worked hrs</th><th class="num">Days</th><th class="num">Absent</th><th class="num">Late</th><th></th></tr></thead>
             <tbody id="schSummBody"></tbody>
           </table>
         </div>
@@ -824,6 +854,10 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         </label>
         <label class="field"><span>Employment status</span>
           <input type="text" id="empStatus" maxlength="40" autocomplete="off" placeholder="e.g. Regular">
+        </label>
+        <label class="field"><span>Annual paid time off (hours)</span>
+          <input type="text" id="empPto" disabled>
+          <span class="emp-computed" id="empPtoNote"></span>
         </label>
         <label class="field hidden" id="empPayrollField"><span>Payroll &amp; Finance access</span>
           <select id="empPayroll">
@@ -1136,17 +1170,65 @@ var Demo = (function () {
       return u.id !== exceptId && u.role === "admin" && u.active !== false;
     });
   }
-  function pausesOnlyGrew(existing, item) {
-    var before = Array.isArray(existing.pauses) ? existing.pauses : [];
-    var after = Array.isArray(item.pauses) ? item.pauses : [];
-    if (after.length < before.length) return false;
-    for (var i = 0; i < before.length; i++) {
-      var a = before[i], b = after[i];
-      if (!b) return false;
-      if (a.type !== b.type || a.start !== b.start) return false;
-      if (a.end && a.end !== b.end) return false;
+  /* Breaks only ever grow: what is already on file keeps its times, a still-open
+     break gets closed by the person who started it, and a run the server has
+     never seen is appended. Nothing already recorded is moved or removed. */
+  function mergePauses(before, after) {
+    var out = [], i, j, k;
+    for (i = 0; i < before.length; i++) out.push(before[i]);
+    for (j = 0; j < after.length; j++) {
+      var b = after[j];
+      if (!b || typeof b !== "object" || !b.type) continue;
+      var at = -1;
+      for (k = 0; k < out.length; k++) {
+        if (out[k] && out[k].type === b.type && out[k].start === b.start) { at = k; break; }
+      }
+      if (at < 0) {
+        for (k = 0; k < out.length; k++) {
+          if (out[k] && out[k].type === b.type && !out[k].end) { at = k; break; }
+        }
+      }
+      if (at < 0) { out.push(b); continue; }
+      var cur = out[at];
+      if (!cur.end && b.end) {
+        var closed = {};
+        Object.keys(cur).forEach(function (key) { closed[key] = cur[key]; });
+        closed.end = b.end;
+        out[at] = closed;
+      }
     }
-    return true;
+    return out;
+  }
+  /* Fold a person's own save over what is already on file instead of turning it
+     away: an admin may have corrected this shift earlier today, and the clock
+     still has to work. The correction and the change history stay put. */
+  function mergeOwnEntry(existing, item) {
+    var out = {};
+    Object.keys(item).forEach(function (k) { out[k] = item[k]; });
+    out.id = existing.id;
+    out.userId = existing.userId;
+    if (existing.date) out.date = existing.date;
+    out.inAt = existing.inAt;
+    if (existing.outAt) out.outAt = existing.outAt;
+    out.audit = Array.isArray(existing.audit) ? existing.audit : [];
+    out.pauses = mergePauses(
+      Array.isArray(existing.pauses) ? existing.pauses : [],
+      Array.isArray(item.pauses) ? item.pauses : []);
+    return out;
+  }
+  /* Two views of the change history, joined by record id. */
+  function mergeAudit(serverList, clientList) {
+    var out = Array.isArray(serverList) ? serverList.slice() : [];
+    var seen = {}, i, j;
+    for (i = 0; i < out.length; i++) if (out[i] && out[i].id) seen[out[i].id] = 1;
+    var add = Array.isArray(clientList) ? clientList : [];
+    for (j = 0; j < add.length; j++) {
+      var rec = add[j];
+      if (!rec || typeof rec !== "object" || !rec.id || seen[rec.id]) continue;
+      seen[rec.id] = 1;
+      out.push(rec);
+    }
+    return out;
   }
   /* A team lead may act on people assigned to them - anyone whose leadId points
      at them - short of account lifecycle and settings. Anything else stays admin. */
@@ -1236,21 +1318,18 @@ var Demo = (function () {
       if (!isAdmin && item.userId !== self.id && !leadFor(db, self, item.userId)) {
         deny(403, "You can only change your own shifts.");
       }
-      if (!isAdmin && !leadFor(db, self, item.userId)) {
-        var editMsg = "That shift is already recorded. Send a correction request for an admin to approve.";
-        if (existing) {
-          if (String(item.inAt) !== String(existing.inAt)) deny(403, editMsg);
-          if (existing.outAt && String(item.outAt || "") !== String(existing.outAt)) deny(403, editMsg);
-          if (!pausesOnlyGrew(existing, item)) deny(403, editMsg);
+      if (!isAdmin && item.userId === self.id) {
+        /* the clock keeps working even after an admin corrected this shift:
+           the correction and the history stay, the new punch folds in on top */
+        if (existing) item = mergeOwnEntry(existing, item);
+        else if (Array.isArray(item.audit) && item.audit.length) {
+          deny(403, "Only an admin writes the change history.");
         }
-        if (Array.isArray(item.audit) && item.audit.length) deny(403, "Only an admin writes the change history.");
       }
       stored = {};
       Object.keys(item).forEach(function (k) { stored[k] = item[k]; });
       if (Array.isArray(stored.audit) && stored.audit.length > MAX_ENTRY_AUDIT) stored.audit = stored.audit.slice(-MAX_ENTRY_AUDIT);
     } else if (coll === "payroll") {
-      /* A person submits their own pay period; payroll-access people and
-         admins decide it. The submitter never sees anyone else's record. */
       if (typeof item.userId !== "string" || typeof item.periodStart !== "string" || typeof item.periodEnd !== "string") {
         deny(400, "That payroll submission wasn't in a format this server understands.");
       }
@@ -1281,7 +1360,9 @@ var Demo = (function () {
       var reporterId = existing ? existing.userId : item.userId;
       var mine = reporterId === self.id;
       var decide = false;
-      if (!isAdmin && !mine) {
+      /* a team lead may file time off for the people they lead - always pending */
+      var onBehalf = !existing && !mine && item.kind === "leave" && leadFor(db, self, reporterId);
+      if (!isAdmin && !mine && !onBehalf) {
         if (!existing) deny(403, "You can only change your own requests.");
         if (leadFor(db, self, reporterId)) {
           var createdAt = new Date(existing.createdAt || 0).getTime();
@@ -1366,13 +1447,33 @@ var Demo = (function () {
         if (!auditOnly || !Array.isArray(patch.settings.audit)) { var e2 = new Error("Only an admin can change settings."); e2.status = 403; throw e2; }
         var merged = {};
         Object.keys(so).forEach(function (k3) { merged[k3] = so[k3]; });
-        merged.audit = patch.settings.audit.slice(-MAX_AUDIT);
+        merged.audit = mergeAudit(so.audit, patch.settings.audit).slice(-MAX_AUDIT);
         db.settings = merged;
       } else {
         if (typeof patch.settings !== "object" || Array.isArray(patch.settings)) bad();
         var next = {};
         Object.keys(patch.settings).forEach(function (k) { next[k] = patch.settings[k]; });
         if (Array.isArray(next.audit) && next.audit.length > MAX_AUDIT) next.audit = next.audit.slice(-MAX_AUDIT);
+        /* announcements are the admin's page, shaped before they are stored */
+        if (next.announcements !== undefined) {
+          var src = Array.isArray(next.announcements) ? next.announcements : [];
+          var clean = [], ai;
+          for (ai = 0; ai < src.length && clean.length < 50; ai++) {
+            var an = src[ai];
+            if (!an || typeof an !== "object" || typeof an.id !== "string" || !an.id) continue;
+            clean.push({
+              id: an.id,
+              kind: an.kind === "banner" ? "banner" : "note",
+              title: String(an.title || "").slice(0, 120),
+              body: String(an.body || "").slice(0, 2000),
+              by: self.username,
+              byName: self.name,
+              createdAt: typeof an.createdAt === "string" ? an.createdAt : "",
+              updatedAt: typeof an.updatedAt === "string" ? an.updatedAt : ""
+            });
+          }
+          next.announcements = clean;
+        }
         db.settings = next;
       }
     }
@@ -1674,7 +1775,15 @@ function makePatch(){
     });
     if(put.length || del.length){ p[c] = { put:put, del:del }; any = true; }
   });
-  if(J(state.settings) !== base.settings){ p.settings = state.settings; any = true; }
+  if(J(state.settings) !== base.settings){
+    /* only an admin carries the whole settings record; everyone else is only
+       ever allowed to add to the change history */
+    var meNow = currentUser();
+    p.settings = meNow && meNow.role === "admin"
+      ? state.settings
+      : { audit: (state.settings && state.settings.audit) || [] };
+    any = true;
+  }
   return any ? p : null;
 }
 
@@ -1898,10 +2007,12 @@ function weekKeys(key){
   d.setDate(d.getDate() + 6);
   return [start, localKey(d)];
 }
-/* ---------- two-week pay periods, always Sunday to Saturday ----------
-   Fortnights are counted from Sunday 2024-01-07, so the period holding any
-   date never drifts: floor((day - epoch) / 14). Returns [startKey, endKey]. */
-var PAY_EPOCH = Date.UTC(2024, 0, 7) / 86400000;
+/* ---------- two-week pay periods, always Monday to Sunday ----------
+   Fortnights are counted from Monday 2026-11-02, so the period holding any
+   date never drifts: floor((day - epoch) / 14). The cut-offs follow the
+   pattern already in use (Oct 19 - Nov 1, then Nov 2 - 15, and on).
+   Returns [startKey, endKey]. */
+var PAY_EPOCH = Date.UTC(2026, 10, 2) / 86400000;
 function payKeys(todayKey){
   var a = String(todayKey || "").split("-");
   var n = Math.floor(Date.UTC(+a[0], +a[1] - 1, +a[2]) / 86400000);
@@ -1912,6 +2023,79 @@ function payKeys(todayKey){
   }
   return [key(start), key(start + 13)];
 }
+
+/* ---------------- time off (leave) ----------------
+   Three kinds a person can file: sick (unpaid, excused, needs a document),
+   paid time off (8 paid hours taken out of the yearly allocation) and unpaid
+   time off (unpaid, excused). Monday is a Critical Working Day - the request
+   still goes through, but it carries cwd:true so an admin or lead must
+   override it when they approve. */
+var LEAVE_TYPES = [
+  { key:"sick", label:"Sick leave",     paid:false, excused:true,  needsDoc:true  },
+  { key:"pto",  label:"Paid time off",  paid:true,  excused:true,  needsDoc:false },
+  { key:"unpaid", label:"Unpaid time off", paid:false, excused:true, needsDoc:false }
+];
+function leaveTypeDef(key){
+  return LEAVE_TYPES.filter(function(t){ return t.key === key; })[0] || LEAVE_TYPES[0];
+}
+/* Every leave request for one person - the pending ones too, because the
+   tile and the form both need to know what is already on file. */
+function leaveReqsFor(uid, status){
+  return state.requests.filter(function(r){
+    return r.kind === "leave" && r.userId === uid &&
+      (!status || r.status === status);
+  });
+}
+/* The approved leave covering a given day (or null). Used by dayStatus,
+   the calendars and the sheet so an approved day reads "On leave". */
+function approvedLeaveFor(uid, key){
+  var out = null;
+  leaveReqsFor(uid, "approved").forEach(function(r){
+    if(r.date && r.date === key) out = r;
+    else if(r.from && r.to && key >= r.from && key <= r.to) out = r;
+  });
+  return out;
+}
+/* Anything not yet decided that already covers the day - the form refuses a
+   second request for the same day while one of these is waiting. */
+function activeLeaveFor(uid, key){
+  var out = null;
+  leaveReqsFor(uid).forEach(function(r){
+    if(r.status === "declined") return;
+    if(r.date && r.date === key) out = r;
+    else if(r.from && r.to && key >= r.from && key <= r.to) out = r;
+  });
+  return out;
+}
+/* Paid time off counts as a full paid day: eight hours, added to the sheet,
+   the payroll totals and the exports just like worked time. */
+function leavePaidMs(r){
+  if(!r || r.kind !== "leave" || r.status !== "approved") return 0;
+  if(r.type === "pto") return (r.hours || 8) * 3600000;   /* paid = 8 hours */
+  return 0;                                  /* sick & unpaid stay unpaid */
+}
+function ptoAllocHours(u){
+  var n = parseFloat(u && u.ptoHours);
+  return isNaN(n) ? 80 : n;                  /* default yearly allocation */
+}
+function ptoUsedHours(uid){
+  var used = 0;
+  leaveReqsFor(uid, "approved").forEach(function(r){
+    if(r.type === "pto") used += (r.hours || 8);
+  });
+  return used;
+}
+/* Critical Working Day: the week starts on a Monday here. */
+function isCwd(key){
+  return keyToDate(key).getDay() === 1;
+}
+/* Sick leave needs a document attached: an image or a PDF. */
+function docOk(f){
+  if(!f) return false;
+  var t = String(f.type || "");
+  return /^image\/(png|jpeg)$/.test(t) || t === "application/pdf";
+}
+function docIsPdf(f){ return !!f && String(f.type || "") === "application/pdf"; }
 
 /* ---------------- schedules ---------------- */
 var DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -2056,6 +2240,12 @@ function schedSpan(r){
   return { start: ws[0].start, end: ws[ws.length - 1].end };
 }
 function dayStatus(u, key, entries, nowMs){
+  /* approved time off outranks the roster: a day on leave is not absent */
+  if(u && !entries.length){
+    var lv = approvedLeaveFor(u.id, key);
+    if(lv) return { code:"leave", cls:"st-leave",
+                    label:"On leave — " + leaveTypeDef(lv.type).label, leave:lv };
+  }
   var f = schedForDay(u, key), sc = f.day;
   if(!f.roster){
     return entries.length ? { code:"nosched", cls:"st-late", label:"Worked — no schedule" }
@@ -2113,7 +2303,10 @@ function dayRows(uid, from, to, cap){
     var es = (byDate[key] || []).slice().sort(function(a, b){
       return new Date(a.inAt) - new Date(b.inAt);
     });
-    out.push({ userId:uid, u:u, date:key, entries:es, status:dayStatus(u, key, es, Date.now()) });
+    var st = dayStatus(u, key, es, Date.now());
+    var lvReq = st.leave || approvedLeaveFor(uid, key);
+    out.push({ userId:uid, u:u, date:key, entries:es, status:st,
+               leave: lvReq || null, leaveMs: lvReq ? leavePaidMs(lvReq) : 0 });
     d.setDate(d.getDate() + 1);
     n++;
   }
@@ -2606,12 +2799,173 @@ function punchOut(){
 }
 
 /* ---------------- render ---------------- */
+/* ---------------- announcements & banners ----------------
+   One strip under the nav, read by everybody. Only an admin may post, edit or
+   delete one; a dismissal lives on this device, keyed by the post's id and the
+   moment it was last updated, so an edited announcement comes back. */
+var ANN_KEY = "sundial.ann.dismiss";
+function annList(){
+  var a = (state.settings && state.settings.announcements) || [];
+  if(!Array.isArray(a)) return [];
+  return a.slice().sort(function(x, y){
+    return new Date(y.updatedAt || y.createdAt || 0) - new Date(x.updatedAt || x.createdAt || 0);
+  });
+}
+function annStamp(a){ return a.updatedAt || a.createdAt || ""; }
+function annDismissed(){
+  try{
+    var v = JSON.parse(localStorage.getItem(ANN_KEY) || "[]");
+    return Array.isArray(v) ? v : [];
+  }catch(e){ return []; }
+}
+function annDismiss(id, stamp){
+  var list = annDismissed(), k = id + ":" + stamp;
+  if(list.indexOf(k) < 0) list.push(k);
+  try{ localStorage.setItem(ANN_KEY, JSON.stringify(list.slice(-200))); }catch(e){}
+}
+function renderAnnouncements(){
+  var box = $("annBanner");
+  if(!box) return;
+  var off = annDismissed();
+  var html = annList().filter(function(a){
+    return off.indexOf(a.id + ":" + annStamp(a)) < 0;
+  }).map(function(a){
+    return '<div class="ann' + (a.kind === "banner" ? " ann--banner" : "") + '">' +
+      '<div class="ann__body">' +
+        (a.title ? '<p class="ann__title">' + esc(a.title) + "</p>" : "") +
+        (a.body ? '<p class="ann__text">' + esc(a.body) + "</p>" : "") +
+        '<p class="ann__meta">Posted by ' + esc(a.byName || a.by || "an admin") +
+          (a.createdAt ? " · " + esc(fmtShortDate(dayKey(new Date(a.createdAt)))) : "") +
+          (a.kind === "banner" ? " · banner" : "") + "</p>" +
+      "</div>" +
+      '<button class="ann__x" type="button" data-anndismiss="' + esc(a.id) +
+        '" data-annstamp="' + esc(annStamp(a)) + '" aria-label="Dismiss" title="Dismiss">×</button>' +
+    "</div>";
+  }).join("");
+  box.innerHTML = html;
+  show(box, !!html);
+}
+$("annBanner").addEventListener("click", function(ev){
+  var t = ev.target;
+  if(!t.getAttribute) return;
+  var id = t.getAttribute("data-anndismiss");
+  if(!id) return;
+  annDismiss(id, t.getAttribute("data-annstamp") || "");
+  renderAnnouncements();
+});
+function annRowsHtml(){
+  var list = annList();
+  if(!list.length) return '<p class="empty" style="margin:0 0 10px">Nothing posted yet.</p>';
+  return '<ul class="punches" id="annList">' + list.map(function(a){
+    return '<li><span class="p-when readout" style="width:6.4em">' +
+        (a.kind === "banner" ? "Banner" : "Notice") + "</span>" +
+      '<span class="p-what"><strong>' + esc(a.title || "(no title)") + "</strong><br>" +
+        '<span class="muted" style="font-size:.82rem">' +
+        esc(String(a.body || "").replace(/\s+/g, " ").slice(0, 120)) + "</span><br>" +
+        '<span class="muted" style="font-size:.78rem">' + esc(a.byName || a.by || "") +
+        (a.createdAt ? " · " + esc(fmtShortDate(dayKey(new Date(a.createdAt)))) : "") + "</span></span>" +
+      '<span style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button class="btn btn-quiet" data-annedit="' + esc(a.id) + '" style="padding:4px 10px;font-size:.82rem">Edit</button>' +
+        '<button class="btn btn-danger" data-anndel="' + esc(a.id) + '" style="padding:4px 10px;font-size:.82rem">Delete</button>' +
+      "</span></li>";
+  }).join("") + "</ul>";
+}
+function saveAnnouncements(list){
+  state.settings = state.settings || { signup:true };
+  state.settings.announcements = list;
+  save(); render();
+}
+function openAnnouncements(){
+  var me = currentUser();
+  if(!me || me.role !== "admin"){ toast("Only an admin can post announcements and banners."); return; }
+  var st = { editId:null };
+  openAct("Announcements & banners",
+    '<div id="annMgr">' + annRowsHtml() + "</div>" +
+    '<p class="note" id="annHead" style="margin:16px 0 8px"><strong>Post a new one</strong></p>' +
+    '<label class="field"><span>Kind</span><select id="anKind">' +
+      '<option value="note">Announcement</option>' +
+      '<option value="banner">Banner (highlighted)</option></select></label>' +
+    '<label class="field"><span>Title</span><input id="anTitle" maxlength="120" placeholder="e.g. Payroll cut-off is Friday"></label>' +
+    '<label class="field"><span>Message</span><textarea id="anBody" rows="3" placeholder="What should everyone know?"></textarea></label>' +
+    '<p class="note" style="margin:0">Everyone sees this on every screen. Dismissing it only hides it on that device.</p>',
+    [
+      { label:"Close", cls:"btn-quiet", close:true },
+      { label:"Post", cls:"btn-in", run:function(body){
+          var who = currentUser();
+          if(!who || who.role !== "admin") return "Only an admin can post announcements and banners.";
+          var kind = body.querySelector("#anKind").value === "banner" ? "banner" : "note";
+          var title = body.querySelector("#anTitle").value.trim();
+          var text = body.querySelector("#anBody").value.trim();
+          if(!title && !text) return "Give the announcement a title or a message.";
+          var now = new Date().toISOString();
+          var list = annList();
+          if(st.editId){
+            var hit = list.filter(function(x){ return x.id === st.editId; })[0];
+            if(!hit) return "That announcement is no longer here.";
+            hit.kind = kind; hit.title = title.slice(0, 120); hit.body = text.slice(0, 2000);
+            hit.updatedAt = now; hit.by = who.username; hit.byName = who.name;
+          } else {
+            list.unshift({ id: nextId("a"), kind:kind, title:title.slice(0, 120), body:text.slice(0, 2000),
+              by: who.username, byName: who.name, createdAt: now, updatedAt: now });
+          }
+          saveAnnouncements(list.slice(0, 50));
+          toast(st.editId ? "Announcement updated." : "Announcement posted.");
+          return null;
+        } }
+    ],
+    function(body){
+      var mgr = body.querySelector("#annMgr");
+      var head = body.querySelector("#annHead");
+      var kind = body.querySelector("#anKind");
+      var title = body.querySelector("#anTitle");
+      var text = body.querySelector("#anBody");
+      var postBtn = $("actButtons").querySelector(".btn-in");
+      function paint(){
+        mgr.innerHTML = annRowsHtml();
+        head.innerHTML = st.editId ? "<strong>Edit announcement</strong>" : "<strong>Post a new one</strong>";
+        if(postBtn) postBtn.textContent = st.editId ? "Save changes" : "Post";
+        if(st.editId){
+          var a = annList().filter(function(x){ return x.id === st.editId; })[0];
+          if(a){
+            kind.value = a.kind === "banner" ? "banner" : "note";
+            title.value = a.title || "";
+            text.value = a.body || "";
+          } else { st.editId = null; }
+        }
+      }
+      mgr.addEventListener("click", function(ev){
+        var t = ev.target;
+        if(!t.getAttribute) return;
+        var ed = t.getAttribute("data-annedit"), del = t.getAttribute("data-anndel");
+        if(ed){ st.editId = ed; paint(); return; }
+        if(!del) return;
+        if(t.dataset.armed !== "1"){
+          t.dataset.armed = "1";
+          var orig = t.textContent;
+          t.textContent = "Click again to delete";
+          setTimeout(function(){ if(t.dataset.armed === "1"){ t.dataset.armed = "0"; t.textContent = orig; } }, 2500);
+          return;
+        }
+        var who = currentUser();
+        if(!who || who.role !== "admin"){ toast("Only an admin can delete announcements."); return; }
+        var list = annList().filter(function(x){ return x.id !== del; });
+        if(st.editId === del) st.editId = null;
+        saveAnnouncements(list);
+        paint();
+        toast("Announcement deleted.");
+      });
+      if(st.editId) paint();
+    });
+}
+$("tAnn").addEventListener("click", openAnnouncements);
+
 function render(){
   var u = currentUser();
   show($("auth"), !u);
   show($("app"), !!u);
   show($("demoBar"), !!meta.demo);
   show($("demoHint"), !!meta.demo && !u);
+  renderAnnouncements();
   if(!u){ paintAuth(); tick(); return; }
 
   $("whoName").textContent = u.name;
@@ -2732,6 +3086,9 @@ function renderSheet(me){
         } else if(r.kind === "offline"){
           toast(r.status === "approved" ? "Your offline report for " + fmtShortDate(r.date) + " was acknowledged."
                                         : "Your offline report for " + fmtShortDate(r.date) + " was declined.");
+        } else if(r.kind === "leave"){
+          toast(r.status === "approved" ? "Your " + leaveTypeDef(r.type).label.toLowerCase() + " for " + fmtShortDate(r.date || r.from) + " was approved."
+                                        : "Your " + leaveTypeDef(r.type).label.toLowerCase() + " for " + fmtShortDate(r.date || r.from) + " was declined.");
         } else {
           toast(r.status === "approved" ? "Your correction for " + fmtShortDate(r.date) + " was approved."
                                         : "Your correction for " + fmtShortDate(r.date) + " was declined.");
@@ -2750,8 +3107,8 @@ function renderSheet(me){
   /* pause columns follow the registry, so new pause kinds never misalign */
   $("sheetHeadRow").innerHTML = "<th>Date</th><th>Status</th><th>Clock in</th><th>Clock out</th>" +
     PAUSES.map(function(p){ return '<th class="num">' + esc(p.label) + "</th>"; }).join("") +
-    '<th class="num">Worked</th><th></th>';
-  var totW = 0, totB = 0, totO = 0, totLunch = 0, days = {}, absent = 0;
+    '<th class="num">Worked</th><th class="num">Paid leave</th><th></th>';
+  var totW = 0, totB = 0, totO = 0, totLunch = 0, totLeave = 0, days = {}, absent = 0;
   rows.forEach(function(row){
     var es = row.entries, first = es[0] || null;
     var workMs = 0, open = false;
@@ -2765,6 +3122,9 @@ function renderSheet(me){
       totLunch += pauseMs(x, "lunch", ref);
       PAUSES.forEach(function(p, j){ pauseTot[j] += pauseMs(x, p.key, ref); });
     });
+    /* approved paid time off is paid hours on the sheet, like a worked day */
+    var leaveMs = row.leaveMs || 0;
+    if(leaveMs){ totLeave += leaveMs; totW += leaveMs; days[row.date] = 1; }
     if(row.status.code === "absent") absent++;
     var cells = PAUSES.map(function(p, j){
       var ms = pauseTot[j];
@@ -2782,6 +3142,13 @@ function renderSheet(me){
         else if(last && last.status === "declined") actionCell = '<span class="reqtag declined">Declined</span> <button class="btn btn-quiet" data-req="' + esc(first.id) + '" style="padding:4px 10px;font-size:.85rem">Request again</button>';
         else actionCell = '<button class="btn btn-quiet" data-req="' + esc(first.id) + '" style="padding:4px 10px;font-size:.85rem">Request edit</button>';
       }
+    } else {
+      /* an absent day still has a way in: anyone can ask for the logs */
+      var dayPending = pendingAddFor(target.id, row.date);
+      actionCell = dayPending
+        ? '<span class="reqtag pending">Review pending</span>'
+        : '<button class="btn btn-quiet" data-reqday="' + esc(row.date) + '" data-requser="' + esc(target.id) + '" style="padding:4px 10px;font-size:.85rem">' +
+          (isAdmin ? "Add logs" : "Request logs") + "</button>";
     }
 
     var tr = document.createElement("tr");
@@ -2794,6 +3161,7 @@ function renderSheet(me){
       "<td>" + (first ? (first.outAt ? esc(fmtClock(new Date(first.outAt))) : '<span class="muted">still open</span>') : '<span class="muted">—</span>') + "</td>" +
       cells +
       '<td class="num">' + (workMs ? esc(fmtDur(workMs)) : '<span class="muted">—</span>') + "</td>" +
+      '<td class="num">' + (leaveMs ? esc(fmtDur(leaveMs)) : '<span class="muted">—</span>') + "</td>" +
       '<td style="text-align:right;white-space:nowrap">' + actionCell + "</td>";
     body.appendChild(tr);
   });
@@ -2808,6 +3176,7 @@ function renderSheet(me){
   $("tBreak").textContent = fmtDur(totB);
   $("tLunch").textContent = fmtDur(totLunch);
   $("tOff").textContent = fmtDur(totO);
+  $("tLeave").textContent = fmtDur(totLeave);
   $("tWorked").textContent = fmtDur(totW);
 
   /* change history sits at the bottom of the sheet and names the editor */
@@ -2960,18 +3329,33 @@ function renderTeam(){
     var isSched = r.kind === "schedule";
     var isOutage = r.kind === "outage";
     var isOffline = r.kind === "offline";
+    var isLeave = r.kind === "leave";
+    var isAdd = r.kind === "add";
+    var when = isSched ? "Schedule" : isOutage ? "Outage" : isOffline ? "Offline"
+      : isLeave ? "Time off" : isAdd ? "Logs" : esc(fmtShortDate(r.date));
+    var what = isSched
+      ? esc(u.name) + ' wants a new schedule'
+      : isOutage
+      ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
+      : isOffline
+      ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' from ' + esc(fmtClock(new Date(r.startAt))) +
+        ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + (proofOk(r.photo) ? ' · photo attached' : '')
+      : isLeave
+      ? esc(u.name) + ' · ' + esc(leaveTypeDef(r.type).label) + ' on ' + esc(fmtShortDate(r.date)) +
+        (r.cwd ? ' · <strong style="color:var(--amber)">Critical Working Day</strong>' : "") +
+        (r.doc ? ' · document attached' : "") +
+        (r.filedBy ? ' · filed by ' + esc(r.filedByName || "a lead") : "") +
+        (r.note ? '<br>' + esc(u.name) + ' says: “' + esc(r.note) + '”' : "")
+      : isAdd
+      ? esc(u.name) + ' wants logs for ' + esc(fmtShortDate(r.date)) +
+        ' · in ' + esc(r.reqIn) + (r.reqOut ? ', out ' + esc(r.reqOut) : ', still open') +
+        (r.note ? '<br>“' + esc(r.note) + '”' : "")
+      : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
+        ((r.reqPauses || []).length ? " · break times" : "");
     var li = document.createElement("li");
-    li.innerHTML = '<span class="p-when readout"' + ((isSched || isOffline) ? ' style="width:7.6em"' : "") + '>' +
-      (isSched ? "Schedule" : isOutage ? "Outage" : isOffline ? "Offline" : esc(fmtShortDate(r.date))) + '</span>' +
-      '<span class="p-what">' + (isSched
-        ? esc(u.name) + ' wants a new schedule'
-        : isOutage
-        ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
-        : isOffline
-        ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' from ' + esc(fmtClock(new Date(r.startAt))) +
-          ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + (proofOk(r.photo) ? ' · photo attached' : '')
-        : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
-          ((r.reqPauses || []).length ? " · break times" : "")) +
+    li.innerHTML = '<span class="p-when readout"' + ((isSched || isOffline || isLeave || isAdd) ? ' style="width:7.6em"' : "") + '>' +
+      when + '</span>' +
+      '<span class="p-what">' + what +
       '<br><span class="muted" style="font-size:.8rem">' + esc(assigneeText(r)) + "</span></span>" +
       '<button class="btn btn-quiet" data-review="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Review</button>';
     reqList.appendChild(li);
@@ -3197,6 +3581,11 @@ function renderEmployees(){
   $("empPos").disabled = !isAdmin;
   $("empHired").disabled = !isAdmin;
   $("empStatus").disabled = !isAdmin;
+  /* paid time off allocation: shown against the year, not yet editable, and
+     never written back by a save - so a non-admin save stays permission-safe */
+  $("empPto").value = ptoAllocHours(t);
+  $("empPtoNote").textContent = ptoUsedHours(t.id) + " h used of " + ptoAllocHours(t) +
+    " h · " + Math.max(0, ptoAllocHours(t) - ptoUsedHours(t)) + " h left — editing this is coming soon.";
   show($("empPayrollField"), isAdmin);
   $("empPayroll").value = (t.role === "admin" || t.payrollAccess === true) ? "yes" : "no";
   $("empPayroll").disabled = !isAdmin;
@@ -3410,12 +3799,26 @@ function schedMinutes(r){
 function schStatusClass(code){
   return code === "late" || code === "early" ? "sch-late"
     : code === "absent" ? "sch-absent"
+    : code === "leave" ? "sch-leave"
     : code === "ontime" || code === "present" ? "sch-ok"
     : code === "open" ? "sch-open" : "";
+}
+/* admin sees everyone; a lead sees themselves and the people they lead */
+function isTeamView(u){ return !!u && (u.role === "admin" || u.role === "lead"); }
+function peopleInScope(u){
+  var all = state.users.filter(function(x){ return x.active !== false; });
+  if(!u) return [];
+  if(u.role === "admin") return all;
+  if(u.role === "lead") return all.filter(function(x){
+    var l = leadOf(x);
+    return x.id === u.id || (l && l.id === u.id);
+  });
+  return all.filter(function(x){ return x.id === u.id; });
 }
 function renderSchedules(){
   var u = currentUser(); if(!u) return;
   var isAdmin = u.role === "admin";
+  var team = isTeamView(u);
   $("vSchedules").classList.toggle("summ-first", !isAdmin);
   if(!schedMonth) schedMonth = localKey(new Date()).slice(0, 7);
   var a = schedMonth.split("-"), y = +a[0], m = +a[1];
@@ -3423,7 +3826,6 @@ function renderSchedules(){
   var label = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
   $("schLabel").textContent = label;
   $("schSummLabel").textContent = label;
-  $("schTitle").textContent = isAdmin ? "Schedules" : "Attendance";
   var hr = $("schHeadRow"); hr.innerHTML = "<th>Person</th>";
   for(var d = 1; d <= n; d++){
     var wd = new Date(y, m - 1, d).getDay();
@@ -3433,18 +3835,22 @@ function renderSchedules(){
   var body = $("schBody"); body.innerHTML = "";
   var summ = $("schSummBody"); summ.innerHTML = "";
   var nowMs = Date.now();
-  /* staff see only their own row; admins see the whole roster */
-  $("schLede").textContent = isAdmin
-    ? "Every rostered day of the month, with hours worked against it."
-    : "Your rostered days for the month, with hours worked against them.";
-  var people = state.users.filter(function(x){ return x.active !== false; });
-  if(!isAdmin) people = people.filter(function(x){ return x.id === u.id; });
-  show($("schGrid"), isAdmin);
-  show($("schCalWrap"), !isAdmin);
-  if(!isAdmin && people.length) renderStaffCal(people[0], y, m, n, nowMs);
+  /* one look at the team: minutes on break, on lunch, offline, hours worked */
+  $("schSummHead").innerHTML = team
+    ? "<th>Person</th><th class=\"num\">Sched hrs</th><th class=\"num\">Worked hrs</th><th class=\"num\">Days</th>" +
+      "<th class=\"num\">Break (min)</th><th class=\"num\">Lunch (min)</th><th class=\"num\">Offline (min)</th>" +
+      "<th class=\"num\">Leave</th><th class=\"num\">Absent</th><th class=\"num\">Late</th><th></th>"
+    : "<th>Person</th><th class=\"num\">Sched hrs</th><th class=\"num\">Worked hrs</th><th class=\"num\">Days</th>" +
+      "<th class=\"num\">Absent</th><th class=\"num\">Late</th><th></th>";
+  var people = peopleInScope(u);
+  show($("schGrid"), team);
+  show($("schCalWrap"), !team);
+  if(!team && people.length) renderStaffCal(people[0], y, m, n, nowMs);
+  var kp = { people:0, worked:0, brk:0, lunch:0, off:0, leave:0, absent:0 };
   people.forEach(function(x){
     var cells = "<td>" + esc(x.name) + "</td>";
     var schedMs = 0, workMs = 0, days = 0, absent = 0, late = 0;
+    var brkM = 0, lunchM = 0, offM = 0, leaveDays = 0, leaveMs = 0;
     for(var d = 1; d <= n; d++){
       var key = schedMonth + "-" + pad(d);
       var r = schedOf(x, key);
@@ -3454,30 +3860,72 @@ function renderSchedules(){
       var closed = es.filter(function(e){ return e.outAt; });
       var wms = 0;
       closed.forEach(function(e){ wms += workedMs(e); });
+      es.forEach(function(e){
+        var ref = e.outAt ? new Date(e.outAt).getTime() : nowMs;
+        brkM += (paidBreakMs(e, ref) / 60000);
+        lunchM += (pauseMs(e, "lunch", ref) / 60000);
+        offM += (pauseMs(e, "outage", ref) / 60000);
+      });
       var st = dayStatus(x, key, es, nowMs);
+      var lv = st.leave || approvedLeaveFor(x.id, key);
       if(closed.length){ days++; workMs += wms; }
+      if(st.code === "leave"){ leaveDays++; leaveMs += leavePaidMs(lv); }
       if(st.code === "absent") absent++;
       if(st.code === "late") late++;
       var wins = r && !r.flex ? schedWindows(r) : [];
       var plan = wins.length ? shortHM(wins[0].start) + "–" + shortHM(wins[wins.length - 1].end) : "";
-      var work = closed.length ? decHours(wms) : (es.length ? "…" : "");
-      cells += '<td class="sch-day ' + schStatusClass(st.code) + '" title="' + esc(fmtShortDate(key) + " · " + (plan ? "plan " + plan : "no plan") + (work ? " · worked " + work : "")) + '">' +
+      var work = closed.length ? decHours(wms) : (st.code === "leave" ? "Leave" : (es.length ? "…" : ""));
+      cells += '<td class="sch-day ' + schStatusClass(st.code) + '" data-day="' + esc(x.id + "|" + key) +
+        '" title="' + esc(fmtShortDate(key) + " · " + (plan ? "plan " + plan : "no plan") + (work ? " · " + work : "") + " — click to open") + '">' +
         '<span class="sch-plan">' + esc(plan) + "</span>" +
         '<span class="sch-work">' + esc(work) + "</span></td>";
     }
     var tr = document.createElement("tr");
     tr.innerHTML = cells;
     body.appendChild(tr);
+
+    var schedH = (schedMs / 3600000).toFixed(1);
+    var workH = decHours(workMs + leaveMs);   /* paid leave counts as worked */
+    var cells2;
+    if(team){
+      cells2 = "<td>" + esc(x.name) + "</td>" +
+        '<td class="num">' + schedH + "</td>" +
+        '<td class="num">' + workH + "</td>" +
+        '<td class="num">' + days + "</td>" +
+        '<td class="num">' + Math.round(brkM) + "</td>" +
+        '<td class="num">' + Math.round(lunchM) + "</td>" +
+        '<td class="num">' + Math.round(offM) + "</td>" +
+        '<td class="num">' + (leaveDays ? leaveDays + " / " + decHours(leaveMs) + "h" : "—") + "</td>" +
+        '<td class="num">' + absent + "</td>" +
+        '<td class="num">' + late + "</td>" +
+        '<td style="text-align:right;white-space:nowrap">' + (isAdmin ? '<button class="btn btn-quiet" data-sched="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button>' : "") + "</td>";
+      kp.people++;
+      kp.worked += workMs + leaveMs;
+      kp.brk += brkM; kp.lunch += lunchM; kp.off += offM;
+      kp.leave += leaveDays; kp.absent += absent;
+    } else {
+      cells2 = "<td>" + esc(x.name) + "</td>" +
+        '<td class="num">' + schedH + "</td>" +
+        '<td class="num">' + workH + "</td>" +
+        '<td class="num">' + days + "</td>" +
+        '<td class="num">' + absent + "</td>" +
+        '<td class="num">' + late + "</td>" +
+        '<td style="text-align:right;white-space:nowrap"></td>';
+    }
     var tr2 = document.createElement("tr");
-    tr2.innerHTML = "<td>" + esc(x.name) + "</td>" +
-      '<td class="num">' + (schedMs / 3600000).toFixed(1) + "</td>" +
-      '<td class="num">' + decHours(workMs) + "</td>" +
-      '<td class="num">' + days + "</td>" +
-      '<td class="num">' + absent + "</td>" +
-      '<td class="num">' + late + "</td>" +
-      '<td style="text-align:right;white-space:nowrap">' + (isAdmin ? '<button class="btn btn-quiet" data-sched="' + esc(x.id) + '" style="padding:4px 10px;font-size:.85rem">Schedule</button>' : "") + "</td>";
+    tr2.innerHTML = cells2;
     summ.appendChild(tr2);
   });
+  show($("schKpis"), team);
+  if(team){
+    $("kPeople").textContent = kp.people;
+    $("kWorked").textContent = decHours(kp.worked);
+    $("kBreak").textContent = Math.round(kp.brk);
+    $("kLunch").textContent = Math.round(kp.lunch);
+    $("kOff").textContent = Math.round(kp.off);
+    $("kLeave").textContent = kp.leave;
+    $("kAbsent").textContent = kp.absent;
+  }
 }
 /* Staff month calendar: their own days as a Sunday-start grid, status carried
    by the border - green present, yellow late, red absent. */
@@ -3498,11 +3946,15 @@ function renderStaffCal(x, y, m, n, nowMs){
     var st = dayStatus(x, key, es, nowMs);
     var cls = st.code === "late" || st.code === "early" ? "sch-b-late"
       : st.code === "absent" ? "sch-b-absent"
+      : st.code === "leave" ? "sch-b-leave"
       : (st.code === "ontime" || st.code === "present") ? "sch-b-present" : "";
+    var lv = st.leave || approvedLeaveFor(x.id, key);
     var inner = "<b>" + d + "</b>";
     if(wms) inner += "<span>" + decHours(wms) + "h</span>";
+    else if(lv) inner += "<span>Leave</span>";
     else if(plan) inner += "<span>" + esc(plan) + "</span>";
-    html += '<div class="sch-cell ' + cls + '" title="' + esc(fmtShortDate(key) + " · " + (plan ? "plan " + plan : "no plan") + (wms ? " · worked " + decHours(wms) + "h" : "")) + '">' + inner + "</div>";
+    html += '<div class="sch-cell ' + cls + '" data-day="' + esc(x.id + "|" + key) +
+      '" title="' + esc(fmtShortDate(key) + " · " + (plan ? "plan " + plan : "no plan") + (wms ? " · worked " + decHours(wms) + "h" : "") + " — click to open") + '">' + inner + "</div>";
   }
   el.innerHTML = html;
 }
@@ -3521,6 +3973,26 @@ $("schSummBody").addEventListener("click", function(ev){
   var su = state.users.filter(function(x){ return x.id === id; })[0];
   if(su) openSchedDialog(su);
 });
+/* every tile opens the day: its logs, its total, and the time-off form */
+function dayTileAt(ev){
+  var t = ev.target;
+  while(t){
+    if(t.getAttribute){
+      var v = t.getAttribute("data-day");
+      if(v){ var p = v.split("|"); return { uid:p[0], date:p[1] }; }
+    }
+    if(t === ev.currentTarget) break;
+    t = t.parentNode;
+  }
+  return null;
+}
+function openTileDay(ev){
+  var g = dayTileAt(ev);
+  if(!g || !g.uid || !g.date) return;
+  openDayDialog(g.uid, g.date);
+}
+$("schGrid").addEventListener("click", openTileDay);
+$("schCal").addEventListener("click", openTileDay);
 
 /* ---------------- generic action dialog ---------------- */
 var actDlg = $("actDlg");
@@ -3628,6 +4100,9 @@ function auditHtml(r){
     : r.action === "outage" ? "Approved an outage credit"
     : r.action === "offline-approve" ? "Acknowledged an offline report"
     : r.action === "offline-decline" ? "Declined an offline report"
+    : r.action === "leave-file" ? "Filed time off"
+    : r.action === "leave-approve" ? "Approved time off"
+    : r.action === "leave-decline" ? "Declined time off"
     : "Edited a shift";
   var detail = (r.changes || []).length ? " — " + r.changes.join("; ") : "";
   return { who:who, what:what, detail:detail };
@@ -3706,6 +4181,8 @@ function reviewRequestDialog(reqId){
   if(r.kind === "schedule") return reviewSchedRequestDialog(reqId);
   if(r.kind === "outage") return reviewOutageRequestDialog(reqId);
   if(r.kind === "offline") return reviewOfflineRequestDialog(reqId);
+  if(r.kind === "leave") return reviewLeaveRequestDialog(reqId);
+  if(r.kind === "add") return reviewAddRequestDialog(reqId);
 
   var u = userOf(r.userId);
   var entry = findEntry(r.entryId);
@@ -3773,6 +4250,373 @@ function reviewRequestDialog(reqId){
           return null;
         } }] : []));
 }
+/* ---------------- time off (leave) ----------------
+   Filed straight from a day tile: the day's logs sit above the form, so there
+   is never a question about which day is being asked for. Admins and leads may
+   file on someone else's behalf; every request lands pending and is decided in
+   the Team tab, exactly like any other request. */
+function pendingAddFor(uid, dateKey){
+  return state.requests.filter(function(r){
+    return r.kind === "add" && r.userId === uid && r.date === dateKey && r.status === "pending";
+  })[0] || null;
+}
+function leaveWhoHtml(uid){
+  var me = currentUser();
+  var list = peopleInScope(me);
+  if(list.length < 2) return "";           /* nobody else to file for */
+  return '<label class="field"><span>Who is this for?</span><select id="lvWho">' +
+    list.map(function(x){
+      return '<option value="' + esc(x.id) + '"' + (x.id === uid ? " selected" : "") + ">" + esc(x.name) + "</option>";
+    }).join("") + "</select></label>";
+}
+function leaveFormHtml(uid){
+  return leaveWhoHtml(uid) +
+    '<label class="field"><span>Type of time off</span><select id="lvType">' +
+      LEAVE_TYPES.map(function(t){
+        return '<option value="' + t.key + '">' + esc(t.label) + "</option>";
+      }).join("") + "</select></label>" +
+    '<label class="field hidden" id="lvDocWrap"><span>Attachment — PNG, JPEG or PDF (required for sick leave)</span>' +
+      '<input type="file" id="lvFile" accept="image/png,image/jpeg,application/pdf">' +
+      '<span class="emp-computed" id="lvDocName">No file chosen yet.</span></label>' +
+    '<label class="field"><span>Reason</span><textarea id="lvNote" rows="3" placeholder="What is this time off for?"></textarea></label>' +
+    '<p class="note" id="lvInfo" style="margin:0 0 6px"></p>' +
+    '<p class="note" id="lvBal" style="margin:0"></p>';
+}
+function leaveInfoText(type, forId){
+  if(type === "pto"){
+    var alloc = ptoAllocHours(userOf(forId)), used = ptoUsedHours(forId);
+    return "Paid time off counts as a full paid day — 8 hours out of the yearly allocation. " +
+      Math.max(0, alloc - used) + " of " + alloc + " hours are still unspent.";
+  }
+  if(type === "sick") return "Unpaid and excused. A document (PNG, JPEG or PDF) is required.";
+  return "Unpaid and excused.";
+}
+function leaveCwdHtml(dateKey){
+  if(!isCwd(dateKey)) return "";
+  return '<p class="note" style="margin:0 0 6px;color:var(--amber)"><strong>Critical Working Day.</strong> ' +
+    "Mondays are critical working days — this can still be filed, but an admin or lead has to override it when they approve.</p>";
+}
+/* Documents travel shrunken: images down to an 800px JPEG, PDFs capped, so a
+   proof never blows past the server's single-request size limit. */
+function readLeaveDoc(file, done){
+  var rd = new FileReader();
+  rd.onerror = function(){ done("That file didn't read."); };
+  rd.onload = function(){
+    var res = String(rd.result || "");
+    if(docIsPdf(file)){
+      if(res.length > 1600000) return done("That PDF is too big — keep it under about 1.2 MB.");
+      return done(null, res, file.name || "document.pdf");
+    }
+    var img = new Image();
+    img.onload = function(){
+      var scale = Math.min(1, 800 / Math.max(img.width, img.height));
+      var cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(img.width * scale));
+      cv.height = Math.max(1, Math.round(img.height * scale));
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      done(null, cv.toDataURL("image/jpeg", .72), file.name || "photo.jpg");
+    };
+    img.onerror = function(){ done("That image didn't read."); };
+    img.src = res;
+  };
+  rd.readAsDataURL(file);
+}
+/* Only our own shrunken attachments are ever rendered back. */
+function leaveDocOk(doc){
+  return typeof doc === "string" &&
+    (/^data:image\/(jpeg|png);base64,/i.test(doc) || /^data:application\/pdf;base64,/i.test(doc));
+}
+function wireLeaveForm(body, uid, dateKey, doc){
+  var type = body.querySelector("#lvType");
+  var wrap = body.querySelector("#lvDocWrap");
+  var info = body.querySelector("#lvInfo");
+  var bal = body.querySelector("#lvBal");
+  var who = body.querySelector("#lvWho");
+  function sync(){
+    var forId = who ? who.value : uid;
+    show(wrap, type.value === "sick");
+    info.textContent = leaveInfoText(type.value, forId);
+    bal.textContent = "Annual paid time off: " + ptoAllocHours(userOf(forId)) +
+      " h · used " + ptoUsedHours(forId) + " h.";
+  }
+  type.addEventListener("change", sync);
+  if(who) who.addEventListener("change", sync);
+  var file = body.querySelector("#lvFile");
+  var name = body.querySelector("#lvDocName");
+  file.addEventListener("change", function(){
+    var f = this.files && this.files[0];
+    if(!f){ doc.data = ""; doc.name = ""; name.textContent = "No file chosen yet."; return; }
+    if(!docOk(f)){ name.textContent = "Choose a PNG, JPEG or PDF."; this.value = ""; return; }
+    if(f.size > 8 * 1024 * 1024){ name.textContent = "That file is too big — pick one under 8 MB."; this.value = ""; return; }
+    name.textContent = "Reading " + f.name + "…";
+    readLeaveDoc(f, function(err, data, nm){
+      if(err){ doc.data = ""; doc.name = ""; name.textContent = err; return; }
+      doc.data = data; doc.name = nm;
+      name.textContent = nm + " attached.";
+    });
+  });
+  sync();
+}
+/* The day itself: what is on file, what it came to, then the time-off form. */
+function openDayDialog(uid, dateKey){
+  var me = currentUser(); if(!me) return;
+  var person = userOf(uid); if(!person) return;
+  var es = entriesFor(uid).filter(function(e){ return e.date === dateKey; })
+    .sort(function(a, b){ return new Date(a.inAt) - new Date(b.inAt); });
+  var st = dayStatus(person, dateKey, es, Date.now());
+  var lv = st.leave || approvedLeaveFor(uid, dateKey);
+  var logsHtml;
+  if(!es.length){
+    logsHtml = '<p class="empty" style="margin:0 0 10px">No logs on file for this day — ' +
+      esc(st.label.toLowerCase()) + ".</p>";
+  } else {
+    logsHtml = '<ul class="punches" id="dayLogs">' + es.map(function(e){
+      var ms = e.outAt ? workedMs(e) : 0;
+      return '<li><span class="p-when readout">' + esc(fmtClock(new Date(e.inAt))) + " – " +
+        (e.outAt ? esc(fmtClock(new Date(e.outAt))) : "open") + "</span>" +
+        '<span class="p-what">' + esc(pauseSummary(e)) + "</span>" +
+        '<span class="p-tag">' + (ms ? esc(fmtDur(ms)) : "in progress") + "</span></li>";
+    }).join("") + "</ul>";
+  }
+  var totalMs = 0;
+  es.forEach(function(e){ if(e.outAt) totalMs += workedMs(e); });
+  var paidMs = totalMs + (lv ? leavePaidMs(lv) : 0);
+  var totals = '<div class="day-total"><span>' +
+    (lv ? "Worked + paid leave" : "Worked this day") + "</span><strong>" +
+    esc(fmtDur(paidMs)) + "</strong></div>";
+  if(lv){
+    totals = '<p class="note" style="margin:0 0 6px;color:var(--lunch)"><strong>On leave — ' +
+      esc(leaveTypeDef(lv.type).label) + " (approved).</strong></p>" + totals;
+  }
+  var pendingLeave = activeLeaveFor(uid, dateKey);
+  if(pendingLeave && pendingLeave.status === "pending"){
+    totals = '<p class="note" style="margin:0 0 6px"><strong>A ' +
+      esc(leaveTypeDef(pendingLeave.type).label.toLowerCase()) +
+      " request for this day is waiting for a decision.</strong></p>" + totals;
+  }
+  var doc = { data:"", name:"" };
+  var canAdd = me.role === "admin" || uid === me.id;
+  var buttons = [{ label:"Cancel", cls:"btn-quiet", close:true }];
+  if(!es.length && canAdd){
+    buttons.push({ label: me.role === "admin" ? "Add logs" : "Request logs", cls:"btn-quiet", run:function(){
+      actDlg.close();
+      submitAddDialog(uid, dateKey);
+      return null;
+    } });
+  }
+  buttons.push({ label:"File time off", cls:"btn-in", run:function(body){
+    var whoSel = body.querySelector("#lvWho");
+    var forId = whoSel ? whoSel.value : uid;
+    var type = body.querySelector("#lvType").value;
+    var def = leaveTypeDef(type);
+    var note = body.querySelector("#lvNote").value.trim();
+    if(note.length < 3) return "Add a short reason for the time off.";
+    if(activeLeaveFor(forId, dateKey)) return "There's already a time-off request covering that day.";
+    if(type === "pto"){
+      var alloc = ptoAllocHours(userOf(forId)), used = ptoUsedHours(forId);
+      if(used + 8 > alloc) return "Only " + Math.max(0, alloc - used) +
+        " paid time off hours are left in that allocation.";
+    }
+    if(def.needsDoc && !doc.data) return "Sick leave needs a document attached — a PNG, JPEG or PDF.";
+    var forU = userOf(forId);
+    state.requests.push({
+      id: nextId("r"), userId: forId, kind: "leave", type: type, date: dateKey,
+      from: dateKey, to: dateKey, hours: type === "pto" ? 8 : 0,
+      cwd: isCwd(dateKey), note: note,
+      doc: doc.data || null, docName: doc.name || "",
+      filedBy: forId === me.id ? "" : me.id,
+      filedByName: forId === me.id ? "" : me.name,
+      status: "pending", createdAt: new Date().toISOString(),
+      resolvedAt: null, resolvedBy: "", seen: true
+    });
+    if(me.role !== "staff"){
+      logEdit(null, "leave-file",
+        ["filed " + def.label + " for " + fmtShortDate(dateKey) + (note ? " — " + note : "")],
+        { userId: forId, date: dateKey, person: forU ? forU.name : "" });
+    }
+    save(); render();
+    toast(forId === me.id
+      ? def.label + " filed for " + fmtShortDate(dateKey) + " — it waits for an admin or lead."
+      : def.label + " filed for " + forU.name + " — it waits for approval.");
+    return null;
+  } });
+  openAct(person.name + " · " + fmtShortDate(dateKey),
+    logsHtml + totals +
+    '<p class="note" style="margin:14px 0 8px"><strong>File time off for this day</strong></p>' +
+    leaveFormHtml(uid) + leaveCwdHtml(dateKey),
+    buttons,
+    function(body){ wireLeaveForm(body, uid, dateKey, doc); });
+}
+/* An absent day still has a way in: staff ask for the logs, an admin writes
+   them straight onto the sheet. */
+function submitAddDialog(uid, dateKey){
+  var me = currentUser(); if(!me) return;
+  var person = userOf(uid) || me;
+  var isAdmin = me.role === "admin";
+  if(!isAdmin && uid !== me.id){ toast("Only an admin can add logs for someone else."); return; }
+  var sched = schedOf(person, dateKey);
+  var wins = sched && !sched.flex ? schedWindows(sched) : [];
+  var defIn = wins.length ? fmtHM(wins[0].start) : "";
+  var defOut = wins.length ? fmtHM(wins[wins.length - 1].end) : "";
+  openAct((isAdmin ? "Add logs for " : "Request logs for ") + person.name + " · " + fmtShortDate(dateKey),
+    '<p class="note" style="margin:0 0 14px">There are no logs on file for that day. ' +
+      (isAdmin ? "Adding writes them onto the sheet and signs the change history as "
+               : "An admin approves this before anything changes, writing them onto the sheet and signing it as ") +
+      '<strong style="color:var(--amber)">@' + esc(me.username) + "</strong>.</p>" +
+    '<label class="field"><span>Clock in (EST)</span><input id="adIn" value="' + esc(defIn) + '" placeholder="9:00 AM"></label>' +
+    '<label class="field"><span>Clock out (EST)</span><input id="adOut" value="' + esc(defOut) + '" placeholder="6:00 PM — leave blank if still open"></label>' +
+    '<label class="field"><span>What happened?</span><textarea id="adNote" rows="2" placeholder="e.g. forgot to clock in all day"></textarea></label>',
+    [
+      { label:"Cancel", cls:"btn-quiet", close:true },
+      { label: isAdmin ? "Add shift" : "Submit request", cls:"btn-in", run:function(body){
+          var inStr = body.querySelector("#adIn").value.trim();
+          var outStr = body.querySelector("#adOut").value.trim();
+          var note = body.querySelector("#adNote").value.trim();
+          if(parseTime(inStr) === null) return "Enter the clock-in time like 9:05 AM.";
+          if(outStr && parseTime(outStr) === null) return "Enter the clock-out time like 6:00 PM, or leave it blank.";
+          if(isAdmin){
+            if(!outStr && openEntry(uid)) return person.name + " is already clocked in — clock them out first.";
+            var entry = { id: nextId("e"), userId: uid, date: dateKey, inAt: null, outAt: null, pauses: [] };
+            var err = applyEditedTimes(entry, dateKey, inStr, outStr);
+            if(err) return err;
+            state.entries.push(entry);
+            logEdit(entry, "add", ["added " + fmtShortDate(dateKey) + " " + describeShift(entry)]);
+            save(); render();
+            toast("Logs added for " + person.name + " — logged as @" + me.username + ".");
+            return null;
+          }
+          if(pendingAddFor(uid, dateKey)) return "There's already a pending request for that day.";
+          state.requests.push({
+            id: nextId("r"), userId: uid, date: dateKey, kind: "add",
+            reqIn: inStr, reqOut: outStr, note: note,
+            status: "pending", createdAt: new Date().toISOString(),
+            resolvedAt: null, resolvedBy: "", seen: true
+          });
+          save(); render();
+          toast("Logs requested for " + fmtShortDate(dateKey) + " — an admin approves it first.");
+          return null;
+        } }
+    ]);
+}
+function reviewAddRequestDialog(reqId){
+  function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
+  var r = getReq(); if(!r) return;
+  var u = userOf(r.userId);
+  var me = currentUser();
+  var sched = schedOf(u, r.date);
+  var wins = sched && !sched.flex ? schedWindows(sched) : [];
+  openAct("Review logs — " + u.name,
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(assigneeText(r)) + '</p>' +
+    '<p class="note" style="margin:0 0 14px">Scheduled that day: <strong>' +
+      (sched ? esc(fmtRange(sched)) : "no schedule on file") + "</strong>. " +
+      esc(u.name) + " says: “" + esc(r.note || "no note") + '”<br>Approving writes a shift for the hours below and signs it as @' +
+      esc(me ? me.username : "") + ".</p>" +
+    '<label class="field"><span>Approve with clock-in (EST)</span><input id="adRevIn" value="' + esc(r.reqIn) + '"></label>' +
+    '<label class="field"><span>Approve with clock-out (EST)</span><input id="adRevOut" value="' + esc(r.reqOut) + '" placeholder="leave blank = still open"></label>',
+    [
+      { label:"Decline", cls:"btn-danger", run:function(){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var who = currentUser();
+          req.status = "declined"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          logEdit(null, "decline", ["declined @" + userOf(req.userId).username + "'s logs for " +
+            fmtShortDate(req.date) + (req.note ? " — " + req.note : "")],
+            { userId:req.userId, date:req.date, person:userOf(req.userId).name });
+          save(); render(); toast("Request declined — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } },
+      { label:"Approve", cls:"btn-in", run:function(body){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var cur = findEntry(req.entryId);
+          if(cur) return "That day already has a shift on it — decline this and edit that shift instead.";
+          var inStr = body.querySelector("#adRevIn").value.trim();
+          var outStr = body.querySelector("#adRevOut").value.trim();
+          if(parseTime(inStr) === null) return "Enter the clock-in time like 9:05 AM.";
+          if(outStr && parseTime(outStr) === null) return "Enter the clock-out time like 6:00 PM, or leave it blank.";
+          if(!outStr && openEntry(req.userId)) return userOf(req.userId).name + " is already clocked in — clock them out first.";
+          var entry = { id: nextId("e"), userId: req.userId, date: req.date, inAt: null, outAt: null, pauses: [] };
+          var err = applyEditedTimes(entry, req.date, inStr, outStr);
+          if(err) return err;
+          state.entries.push(entry);
+          logEdit(entry, "add", ["approved @" + userOf(req.userId).username + "'s logs for " +
+            fmtShortDate(req.date) + " — " + describeShift(entry)]);
+          var who = currentUser();
+          req.status = "approved"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          save(); render();
+          toast("Logs written onto the sheet — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } }
+    ]);
+}
+function reviewLeaveRequestDialog(reqId){
+  function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
+  var r = getReq(); if(!r) return;
+  var u = userOf(r.userId);
+  var me = currentUser();
+  var def = leaveTypeDef(r.type);
+  var docHtml = "";
+  if(r.doc && leaveDocOk(r.doc)){
+    docHtml = /^data:application\/pdf/i.test(r.doc)
+      ? '<p class="note" style="margin:0 0 14px">Attachment: <a href="' + esc(r.doc) + '" download="' +
+        esc(r.docName || "document.pdf") + '">' + esc(r.docName || "document.pdf") + "</a></p>"
+      : '<p class="note" style="margin:0 0 6px">Attachment: ' + esc(r.docName || "photo") + "</p>" +
+        '<img src="' + esc(r.doc) + '" alt="Attachment" style="max-width:100%;border-radius:10px;border:1px solid var(--line);margin:0 0 14px">';
+  } else if(r.doc){
+    docHtml = '<p class="err">The attachment on this request could not be read.</p>';
+  }
+  openAct("Review time off — " + u.name,
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + " · " + esc(def.label) +
+      (r.hours ? " · " + r.hours + " paid hours" : "") + ' · ' + esc(assigneeText(r)) + "</p>" +
+    (r.filedBy ? '<p class="note" style="margin:0 0 6px">Filed on behalf of ' + esc(u.name) +
+      " by " + esc(r.filedByName || "a lead") + ".</p>" : "") +
+    (r.cwd ? '<p class="err" style="color:var(--amber)"><strong>Critical Working Day.</strong> ' +
+      "Mondays are critical working days — approving this is the override.</p>" : "") +
+    '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "no note") + '”<br>' +
+      (def.paid
+        ? "Approving pays <strong>" + (r.hours || 8) + " hours</strong> for that day and takes them from the yearly allocation."
+        : "Approving marks the day as excused — it stays unpaid.") +
+      ' Approving writes your username — <strong style="color:var(--amber)">@' + esc(me ? me.username : "") +
+      "</strong> — into the change history.</p>" + docHtml,
+    [
+      { label:"Decline", cls:"btn-danger", run:function(){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var who = currentUser();
+          req.status = "declined"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          logEdit(null, "leave-decline", ["declined @" + userOf(req.userId).username + "'s " +
+            leaveTypeDef(req.type).label.toLowerCase() + " for " + fmtShortDate(req.date) +
+            (req.note ? " — " + req.note : "")],
+            { userId:req.userId, date:req.date, person:userOf(req.userId).name });
+          save(); render();
+          toast("Time off declined — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } },
+      { label:"Approve", cls:"btn-in", run:function(){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var who = currentUser();
+          req.status = "approved"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          var d = leaveTypeDef(req.type);
+          logEdit(null, "leave-approve", ["approved @" + userOf(req.userId).username + "'s " +
+            d.label.toLowerCase() + " for " + fmtShortDate(req.date) +
+            (d.paid ? " — " + (req.hours || 8) + " paid hours" : "") + (req.cwd ? " (Critical Working Day override)" : "")],
+            { userId:req.userId, date:req.date, person:userOf(req.userId).name });
+          save(); render();
+          toast("Time off approved — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } }
+    ]);
+}
+
 /* An outage report: no shift exists, so approving WRITES one - prefilled with
    that day's scheduled hours. Declining only logs, like any other refusal. */
 function outageLabel(kind){
@@ -4108,7 +4952,7 @@ function toCsv(dayList){
   var head = ["Name","Username","Date","Day","Scheduled in","Scheduled out","Clock in","Clock out",
               "Late (min)","Early out (min)"];
   PAUSES.forEach(function(p){ head.push(p.label + " (min)"); });
-  head.push("Total paid break (min)","Worked (hours)","Status","Time zone","Edited by");
+  head.push("Total paid break (min)","Worked (hours)","Paid leave (hours)","Status","Time zone","Edited by");
   var rows = [head];
   dayList.forEach(function(row){
     var u = row.u || userOf(row.userId);
@@ -4135,6 +4979,9 @@ function toCsv(dayList){
     pauses.forEach(function(v){ r.push(v ? Math.round(v / 60000) : 0); });
     r.push(Math.round(brk / 60000));
     r.push(work && !open ? decHours(work) : "");
+    var lvMs = row.leaveMs != null ? row.leaveMs
+      : (function(){ var l = approvedLeaveFor(row.userId, row.date); return l ? leavePaidMs(l) : 0; })();
+    r.push(lvMs ? decHours(lvMs) : "");
     r.push(st ? st.label : "");
     r.push("EST");
     r.push(Object.keys(editors).join("; "));
@@ -4260,7 +5107,7 @@ $("sSubmit").addEventListener("click", function(){
   var from = $("sFrom").value, to = $("sTo").value;
   if(!from || !to){ toast("Pick the pay period first."); return; }
   if(to < from){ var sw = from; from = to; to = sw; }
-  var total = 0, list = [];
+  var total = 0, leaveTotal = 0, list = [];
   dayRows(t.id, from, to, 4000).forEach(function(row){
     var work = 0, brk = 0, first = row.entries[0] || null, last = row.entries[row.entries.length - 1] || null;
     row.entries.forEach(function(x){
@@ -4268,10 +5115,12 @@ $("sSubmit").addEventListener("click", function(){
       work += workedMs(x);
       brk += paidBreakMs(x, new Date(x.outAt).getTime());
     });
-    if(work > 0){
-      total += work;
+    var lvMs = row.leaveMs || 0;            /* approved paid time off pays too */
+    if(work > 0 || lvMs > 0){
+      total += work + lvMs;
+      leaveTotal += lvMs;
       list.push({ date:row.date, inAt:first ? first.inAt : null, outAt:last ? last.outAt : null,
-        workedMs:work, breakMs:brk });
+        workedMs:work, breakMs:brk, leaveMs:lvMs });
     }
   });
   if(!total){ toast("No completed hours in that pay period."); return; }
@@ -4281,6 +5130,7 @@ $("sSubmit").addEventListener("click", function(){
   if(existing && existing.status === "submitted"){ toast("That pay period is already with Payroll & Finance."); return; }
   if(existing && existing.status === "approved"){ toast("That pay period is already approved."); return; }
   var msg = t.name + " · " + fmtShortDate(from) + " – " + fmtShortDate(to) + " · " + fmtDur(total) +
+    (leaveTotal ? " (" + fmtDur(leaveTotal) + " of it paid leave)" : "") +
     " worked across " + list.length + (list.length === 1 ? " day" : " days") +
     ". Submit this pay period to Payroll & Finance?";
   confirmAsk(existing ? "Resubmit payroll hours" : "Submit payroll hours", msg, existing ? "Resubmit" : "Submit").then(function(ok){
@@ -4289,7 +5139,7 @@ $("sSubmit").addEventListener("click", function(){
     rec.userName = t.name; rec.username = t.username;
     rec.submittedAt = new Date().toISOString();
     rec.submittedBy = me.id; rec.submittedByName = me.name;
-    rec.totalWorkedMs = total; rec.totalWorked = fmtDur(total); rec.rows = list;
+    rec.totalWorkedMs = total; rec.totalWorked = fmtDur(total); rec.totalLeaveMs = leaveTotal; rec.rows = list;
     rec.status = "submitted"; rec.decidedAt = null; rec.decidedBy = "";
     rec.visibleTo = state.users.filter(function(x){ return x.role === "admin" || x.payrollAccess === true; })
       .map(function(x){ return x.id; });
@@ -4350,6 +5200,7 @@ var PNG_ST = {
   "st-late":   { bg:"#FCF0DA", line:"#E4C68C", ink:"#8A5300" },
   "st-early":  { bg:"#FCF0DA", line:"#E4C68C", ink:"#8A5300" },
   "st-absent": { bg:"#FCEBE9", line:"#EAA9A2", ink:"#C02A20" },
+  "st-leave":  { bg:"#ECEBFD", line:"#B5B1F1", ink:"#4A44C4" },
   "st-open":   { bg:"#ECEBFD", line:"#B5B1F1", ink:"#4A44C4" },
   "st-off":    { bg:"#F2F5F8", line:"#E4EAF0", ink:"#5B6673" }
 };
@@ -4455,7 +5306,8 @@ function paintSheet(ctx, d, dry){
   var tw = W - PAD * 2, th = 66;
   box(PAD, y, tw, th, "#F7F9FB", 10, "fill");
   box(PAD, y, tw, th, "#E4EAF0", 10, "stroke");
-  var tk = [["Days worked", d.days], ["Absent", d.absent], ["Paid breaks", d.brk], ["Total worked", d.worked]];
+  var tk = [["Days worked", d.days], ["Absent", d.absent], ["Paid breaks", d.brk],
+            ["Paid leave", d.leave || "0:00"], ["Total worked", d.worked]];
   for(i = 0; i < tk.length; i++){
     var tx = PAD + (tw / tk.length) * i + 20;
     say(tk[i][0], tx, y + 26, "400 12px " + PNG_SANS, "#5B6673");
@@ -4546,6 +5398,7 @@ function sheetPngData(){
     range: pngDate(from) + "  –  " + pngDate(to),
     days: $("tDays").textContent, absent: $("tAbsent").textContent,
     brk: $("tBreak").textContent, worked: $("tWorked").textContent,
+    leave: $("tLeave").textContent,
     gen: "Downloaded " + pngDate(localKey(new Date())) + " at " + fmtClock(new Date()) +
          (me ? " by @" + me.username : ""),
     sign: ($("auditSign").textContent || "").replace(/\s+/g, " ").trim()
@@ -4672,8 +5525,10 @@ $("sheetBody").addEventListener("click", function(ev){
   var t = ev.target;
   if(!t.getAttribute) return;
   var reqId = t.getAttribute("data-req"), editId = t.getAttribute("data-edit");
+  var dayId = t.getAttribute("data-reqday"), dayUser = t.getAttribute("data-requser");
   if(reqId){ var entry = findEntry(reqId); if(entry) submitRequestDialog(entry); }
   if(editId){ var e2 = findEntry(editId); if(e2) editShiftDialog(e2); }
+  if(dayId && dayUser) submitAddDialog(dayUser, dayId);
 });
 
 /* ---------------- bulk import ---------------- */

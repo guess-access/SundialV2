@@ -272,8 +272,46 @@ everyone plus the per-row **Schedule** button that edits a weekly pattern,
 and the matrix refreshes on save. Staff see the tab as **Attendance**, with
 their own row only (or their own month calendar). On staff screens the month renders as a
 Sunday-start calendar grid instead of the row, with each day filled by its
-status — green present, yellow late, red absent — and a filled legend
-underneath.
+status — green present, yellow late, red absent, violet on leave — and a filled
+legend underneath.
+
+Admins and leads get the **team dashboard** on the same tab: a KPI strip
+(people, hours worked, minutes on break / lunch / offline, leave days, absents)
+plus one row per person carrying the same minutes, so a whole team's day can be
+read in one look.
+
+**Every day tile is clickable** — a lead or admin tapping any cell, and a staff
+member tapping their own, opens that day's logs and total hours with the
+**time-off form** underneath it.
+
+## Time off (leave)
+
+Filed from any day tile. Three kinds:
+
+| Type | Pay | Notes |
+| --- | --- | --- |
+| Sick leave | unpaid, excused | a PNG, JPEG or PDF attachment is required |
+| Paid time off | 8 paid hours | taken from the yearly allocation in My Info (default 80 h) |
+| Unpaid time off | unpaid, excused | — |
+
+**Mondays are Critical Working Days**: the request still goes through but is
+flagged `cwd`, and approving it is the admin's or lead's override. Admins and
+leads may also file **on behalf of** someone else — it always lands *pending*
+and is approved in the Team tab, like every other request. Approved paid time
+off adds its 8 hours to the timesheet, the payroll submission, the CSV and the
+PNG export (a **Paid leave** column and total).
+
+An absent day is never a dead end: the sheet offers **Request logs** on it, and
+an admin can **Add logs** straight onto the sheet.
+
+## Announcements and banners
+
+A strip under the navigation that everyone sees on every screen — an
+**Announcement**, or a **Banner** when it should be highlighted. Only an
+**admin** may post, edit or delete one (the button lives in the Team tab
+toolbar); the records travel in `settings.announcements` and the server refuses
+anyone else. Dismissing one only hides it on that device, and an edited post
+comes back because the dismissal is keyed to the moment it was updated.
 
 ## Demo mode (no backend)
 
