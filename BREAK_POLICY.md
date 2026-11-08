@@ -8,4 +8,6 @@ The intended calculation is:
 
 Example: a 9-hour shift with 30 minutes of break, 1 hour of lunch, and 15 minutes offline renders 7 hours 15 minutes.
 
-**Implementation note:** the current `app.html` calculation still treats Break 1, Break 2, and Bio break as paid and deducts only Lunch and Offline. The application calculation must be updated to match this policy before the behavior described above is live.
+**Implementation note:** `app.html` implements this now — `UNPAID` lists
+Break 1, Break 2, Lunch and Offline, and `workedMs()` deducts them everywhere
+(sheet, totals, CSV/PNG exports and payroll submissions). Bio break stays paid.

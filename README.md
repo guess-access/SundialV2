@@ -19,6 +19,10 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
   `by @username · date time`, plus a closing `Last change on this sheet by @username` line.
 - The admin can **add**, **edit** and **delete** shifts on somebody else's behalf (the sheet
   has an *Add shift* button, every row has *Edit*, and the edit box has *Delete shift*).
+- **Overlapping shifts are refused.** A saved or edited shift's clock-in–clock-out window may
+  not overlap any other shift on file for the same person (an open shift counts as running
+  until it is clocked out), and clocking in inside an existing window is refused too.
+  Same-day split shifts are fine — only true overlaps double-count hours.
 - Deleting a shift and approving or declining a staff correction request are logged the same
   way, so the admin who did it is always named at the bottom of the sheet.
 - The timesheet CSV gained an **Edited by** column; the punch log CSV now includes the
@@ -108,10 +112,16 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
   - **Early logout (hh:mm:ss)** — clocked out before the scheduled end.
   - **On time**, **Still clocked in**, **Rest day**, **Flexible hours**, **No schedule** or
     **Worked on a rest day**. Two can appear together, e.g. `Late (00:05:00) · Early logout (00:12:00)`.
-- The totals above the sheet gained an **Absent** count next to *Days worked*, *Break time*
-  and *Total worked*.
+- The totals above the sheet are five cards: *Days worked*, *Absent*,
+  *Offline Hours (Issues)*, *Paid leave* and *Total Worked Hours*. **Break 1,
+  Break 2, Lunch and Offline time is unpaid** — it is deducted from worked hours
+  everywhere (sheet, totals, exports, payroll submissions). **Bio break stays
+  paid.** The per-row pause columns remain on the sheet to show where the time
+  went; the team dashboard's *Break (min)* counts break 1 + break 2, and offline
+  minutes have their own column.
 - The timesheet CSV follows the same shape: one row per day — weekends and absences
-  included — with `Day`, `Late (min)`, `Early out (min)` and a readable `Status` column.
+  included — with `Day`, `Late (min)`, `Early out (min)`, the five pause-minute columns,
+  `Total break (min, unpaid)` and a readable `Status` column.
   **Export every timesheet** does the same for everybody, day by day across the days each
   person has worked.
 - Days without a shift show `—` in the time columns; *Edit* (admin) and *Request edit*
@@ -246,8 +256,8 @@ is blocked and the admin declines and edits the shift instead — so an outage
 can never double-pay a day. Mid-shift outages use the **Offline** button
 instead: status flips to Offline (reclick for Back online) and the minutes
 come out of worked time like any break, as many times as the power flaps. The
-timesheet lists every pause kind in its own column with an **Offline** total
-beside Break time.
+timesheet lists every pause kind in its own column, and the **Offline Hours
+(Issues)** card totals the day's offline minutes.
 
 Admins can also pull a whole roster at once: **Import from EE-DATA** (My Info,
 beside the add-user form) reads the link-shared Google Sheet tab of that name

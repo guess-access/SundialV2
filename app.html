@@ -3,9 +3,6 @@
 <head>
 <meta charset="utf-8">
 <!-- This site is hosted on Netlify. Anyone can build and deploy a site
-     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=da63bcaa-0a1e-4bf0-a208-b05277ea1fc0
-     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
-<!-- This site is hosted on Netlify. Anyone can build and deploy a site
      like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=60a7a115-1330-4d32-ad1d-1170bab742d0
      Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -2342,8 +2339,33 @@ function applyEditedTimes(entry, dateKey, inStr, outStr){
     if(newOut.getTime() <= newIn.getTime()) return "Clock-out has to be after clock-in.";
     newOutIso = newOut.toISOString();
   }
+  var ov = overlapErr(entry.userId, entry.id, newIn.toISOString(), newOutIso);
+  if(ov) return ov;
   entry.inAt = newIn.toISOString();
   entry.outAt = newOutIso;
+  return null;
+}
+/* One person can't be in two shifts at once. A saved shift's clock-in to
+   clock-out window may not overlap any other shift on file for that person —
+   overlap double-counts hours on the sheet (the "more hours than the clock"
+   rows). The shift being edited is excluded by id, so changing its own times
+   is fine; an open shift counts as running until it is clocked out. Returns
+   an error naming the conflicting shift, or null when the window is clean. */
+function overlapErr(userId, entryId, inIso, outIso){
+  var newIn = new Date(inIso).getTime();
+  var newOut = outIso ? new Date(outIso).getTime() : Infinity;
+  for(var i = 0; i < state.entries.length; i++){
+    var e = state.entries[i];
+    if(e.id === entryId || e.userId !== userId || !e.inAt) continue;
+    var oIn = new Date(e.inAt).getTime();
+    var oOut = e.outAt ? new Date(e.outAt).getTime() : Infinity;
+    if(oIn < newOut && newIn < oOut){
+      var u = userOf(userId);
+      return "That overlaps an existing shift for " + (u ? u.name : "this person") + ": " +
+        fmtShortDate(e.date) + " " + fmtClock(new Date(e.inAt)) + " – " +
+        (e.outAt ? fmtClock(new Date(e.outAt)) : "still open") + ". Edit or delete that shift instead.";
+    }
+  }
   return null;
 }
 /* ---------------- entries ---------------- */
@@ -2669,6 +2691,8 @@ function punchIn(){
   var u = currentUser(); if(!u) return;
   if(openEntry(u.id)){ toast("You're already clocked in."); return; }
   var now = new Date();
+  var ov = overlapErr(u.id, null, now.toISOString(), null);
+  if(ov){ toast(ov); return; }
   state.entries.push({
     id: nextId("e"), userId: u.id, date: dayKey(now),
     inAt: now.toISOString(), outAt: null, pauses: []
@@ -6038,6 +6062,15 @@ $("schedSave").addEventListener("click", function(){
 thisWeek();
 setView("clock");
 boot();
+
+/* debug handle for the test harness (read-only references; nothing else uses it) */
+window.__sd = {
+  state: state,
+  workedMs: workedMs, unpaidMs: unpaidMs, breakOnlyMs: breakOnlyMs,
+  etToUtc: etToUtc, localKey: localKey, dayKey: dayKey, fmtDur: fmtDur,
+  applyEditedTimes: applyEditedTimes, toCsv: toCsv, dayRows: dayRows,
+  sheetPngData: sheetPngData, punchIn: punchIn, render: render
+};
 })();
 </script>
 <script>
@@ -6060,4 +6093,3 @@ boot();
 </script>
 </body>
 </html>
-<script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="da63bcaa-0a1e-4bf0-a208-b05277ea1fc0" data-app-host="app.netlify.com" data-account-tier="free"></script>
