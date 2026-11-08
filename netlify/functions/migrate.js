@@ -19,6 +19,7 @@ exports.handler = async (event) => {
     const users = store.asList(body.users);
     const entries = store.asList(body.entries);
     const requests = store.asList(body.requests);
+    const payroll = store.asList(body.payroll);   /* pay-period submissions ride along too */
 
     if (users.some((u) => typeof u.id !== "string" || typeof u.username !== "string")) {
       return store.reply(400, { error: "That backup wasn't in a format this server understands." });
@@ -28,7 +29,7 @@ exports.handler = async (event) => {
       ? body.settings : { signup: true };
     if (Array.isArray(settings.audit) && settings.audit.length > 300) settings.audit = settings.audit.slice(-300);
 
-    db.state = { users: users, entries: entries, requests: requests, settings: settings, sessions: {} };
+    db.state = { users: users, entries: entries, requests: requests, payroll: payroll, settings: settings, sessions: {} };
 
     const sid = typeof body.sessionUserId === "string" ? body.sessionUserId : null;
     const me = sid ? users.filter((u) => u.id === sid)[0] : null;

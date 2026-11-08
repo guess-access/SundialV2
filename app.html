@@ -673,6 +673,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
           <button class="btn" id="sExport">Export timesheet</button>
           <button class="btn" id="sPng">Download PNG</button>
           <button class="btn" id="sLog">Export punch log</button>
+          <button class="btn hidden" id="btnBackup" title="Download the whole server database as JSON" style="margin-left:auto">Download backup</button>
         </div>
         <div class="totals">
           <div><span>Days worked</span><strong id="tDays">0</strong></div>
@@ -1704,7 +1705,7 @@ var base = snapshot(state);
 var meta = { ready:false, needsSetup:false, signup:true, offline:false, reason:"" };
 var failed = false, runP = null, again = false, lastOfflineToast = 0;
 
-function J(x){ return JSON.stringify(x); }
+function J(x, r, s){ return JSON.stringify(x, r, s); }
 function idMap(list){ var m = {}; (list || []).forEach(function(x){ m[x.id] = x; }); return m; }
 function loadAuth(){
   try{ var a = JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); return (a && a.token && a.userId) ? a : null; }
@@ -3007,6 +3008,7 @@ function render(){
   show($("sLog"), u.role === "admin");
   show($("sPng"), u.role === "admin");     // and only an admin saves the sheet as a picture
   show($("sAdd"), u.role === "admin");     // the admin adds shifts for other people too
+  show($("btnBackup"), u.role === "admin"); // the admin can dump the whole server database
   show($("btnSchedReq"), u.role !== "admin"); // staff ask for schedule changes, the admin approves them
   show($("btnOutageReq"), u.role !== "admin"); // same for power and internet outages
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
@@ -5208,6 +5210,19 @@ $("sLog").addEventListener("click", function(){
   var list = rangeEntries(t.id, from, to);
   if(!list.length && !auditInRange(t.id, from, to).length){ toast("Nothing to export in this range."); return; }
   download("punch-log-" + t.username + "-" + from + ".csv", toLogCsv(list, auditInRange(t.id, from, to)));
+});
+/* the admin's escape hatch: the whole server database in one JSON file. Feeding
+   this file to POST /api/migrate on an empty new deployment restores everything
+   (people, shifts, requests, payroll, announcements) — keep recent copies. */
+$("btnBackup").addEventListener("click", function(){
+  var me = currentUser(); if(!me) return;
+  api("GET", "/state").then(function(res){
+    download("sundial-backup-" + dayKey(new Date()) + ".json", J(res, null, 2));
+    toast("Backup downloaded — keep it somewhere safe. " +
+      ((state.entries || []).length) + " shifts, " + ((state.users || []).length) + " accounts.");
+  }, function(err){
+    toast((err && err.message) || "The backup couldn't be downloaded.");
+  });
 });
 
 /* ---------- Download the timesheet as a PNG ----------

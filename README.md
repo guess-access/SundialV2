@@ -23,6 +23,10 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
   not overlap any other shift on file for the same person (an open shift counts as running
   until it is clocked out), and clocking in inside an existing window is refused too.
   Same-day split shifts are fine — only true overlaps double-count hours.
+- **Download backup** (My timesheet, admin-only) takes the whole server database as
+  `sundial-backup-<date>.json` — accounts, shifts, requests, pay-roll records, announcements
+  and the change history. POSTing that file to `/api/migrate` on an *empty* deployment
+  restores everything, so keep dated copies of it somewhere safe.
 - Deleting a shift and approving or declining a staff correction request are logged the same
   way, so the admin who did it is always named at the bottom of the sheet.
 - The timesheet CSV gained an **Edited by** column; the punch log CSV now includes the
