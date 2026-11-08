@@ -417,6 +417,13 @@ var Demo = (function () {
       deny(403, "Only an admin can delete a shift.");
     } else if (coll === "payroll" && !isAdmin) {
       deny(403, "Only an admin can remove a payroll submission.");
+    } else if (coll === "requests") {
+      /* admins delete any request; a team lead deletes their own or their
+         people's (cleaning up the request log); everyone else only their own */
+      if (!isAdmin && !(self.role === "lead" && leadFor(db, self, existing.userId)) &&
+          existing.userId !== self.id) {
+        deny(403, "You can only delete your own requests.");
+      }
     } else if (!isAdmin && existing.userId !== self.id) {
       deny(403, "You can only change your own records.");
     }

@@ -41,6 +41,10 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
 - **Approved payroll locks its days.** Once a period is approved, no edits, correction
   requests or log fills are accepted for days inside that range (UI and server side);
   admins and people with payroll access keep their buttons.
+- **Request Logs tab.** A repository of every request with its live status — staff see
+  their own history (`Pending for Admin Approval`, `Approved`, `Declined`) with a status
+  filter; admins and leads also get one-click **Approve**, **Decline** and **Delete**
+  right on each row (deletes confirm first; the change history keeps past decisions).
 - Deleting a shift and approving or declining a staff correction request are logged the same
   way, so the admin who did it is always named at the bottom of the sheet.
 - The timesheet CSV gained an **Edited by** column; the punch log CSV now includes the

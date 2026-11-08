@@ -629,6 +629,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <button class="tab" role="tab" data-view="clock" aria-selected="true">Clock</button>
       <button class="tab" role="tab" data-view="sheet" aria-selected="false">My timesheet</button>
       <button class="tab hidden" role="tab" data-view="team" aria-selected="false" id="tabTeam">Team</button>
+      <button class="tab hidden" role="tab" data-view="reqlogs" aria-selected="false" id="tabReqLogs">Request Logs</button>
       <button class="tab hidden" role="tab" data-view="schedules" aria-selected="false" id="tabSched">Schedules</button>
     </div>
 
@@ -745,6 +746,27 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
             <select id="tSignup"><option value="on">Anyone can create an account</option><option value="off">Admin adds people only</option></select>
           </label>
         </div>
+      </div>
+    </div>
+
+    <!-- request logs: an archive of every request with its live status.
+         Staff read their own history here; admins and leads also decide
+         and clean up from this same list. -->
+    <div id="vReqLogs" class="hidden">
+      <div class="panel block">
+        <h2>Request Logs <span class="muted" id="rlBadge" style="font-weight:400"></span></h2>
+        <div class="toolbar" style="margin:0 0 10px">
+          <label class="field" style="flex:0 0 auto"><span>Show</span>
+            <select id="rlFilter">
+              <option value="all">All requests</option>
+              <option value="pending">Pending for Admin Approval</option>
+              <option value="approved">Approved</option>
+              <option value="declined">Declined</option>
+            </select>
+          </label>
+        </div>
+        <ul class="punches" id="reqLogList"></ul>
+        <p class="empty hidden" id="reqLogEmpty">No requests on file yet.</p>
       </div>
     </div>
     <!-- schedules view: the whole month, everyone, hours against plan -->
@@ -3014,6 +3036,7 @@ function render(){
   $("whoRole").textContent = "@" + u.username + (whoPos ? " · " + whoPos : "");
   $("whoAva").innerHTML = empAvatar(u, "who-ava");
   show($("tabTeam"), u.role === "admin" || u.role === "lead");
+  show($("tabReqLogs"), true); // the request archive is open to everyone
   show($("tabSched"), true); // the month view is posted for everyone; editing stays admin-only
   show($("btnPin"), u.role === "admin");   // passcodes are changed by an admin
   show($("sExport"), u.role === "admin");  // only an admin exports timesheets and punch logs
@@ -3040,6 +3063,7 @@ function render(){
   renderClock(u);
   if(view === "sheet") renderSheet(u);
   if(view === "team" && u.role !== "staff") renderTeam();
+  if(view === "reqlogs") renderReqLogs(u);
   if(view === "schedules") renderSchedules();
   if(view === "employees") renderEmployees();
   tick();
@@ -3442,6 +3466,269 @@ function guardDecision(r){
     (a.escalated ? " — it escalated after 24 hours." : ".");
 }
 
+/* ---------------- request logs ----------------
+   A repository of every request with its live status. Staff see their own
+   history ("Pending for Admin Approval", "Approved", ...); admins and leads
+   get Approve, Decline and Delete on top. One-click decisions reuse the same
+   outcome logic as the review dialogs, using the values the request carries. */
+function reqLogText(r, u){
+  var isSched = r.kind === "schedule";
+  var isDaySched = r.kind === "daySched";
+  var isOutage = r.kind === "outage";
+  var isOffline = r.kind === "offline";
+  var isLeave = r.kind === "leave";
+  var isAdd = r.kind === "add";
+  var when = (isSched || isDaySched) ? "Schedule" : isOutage ? "Outage" : isOffline ? "Offline"
+    : isLeave ? "Time off" : isAdd ? "Logs" : "Correction";
+  var what = isSched
+    ? esc(u.name) + ' asked for a new schedule'
+    : isDaySched
+    ? esc(u.name) + ' · schedule change for ' + esc(fmtShortDate(r.date)) +
+      ' · ' + esc(r.reqIn) + " to " + esc(r.reqOut) +
+      (r.note ? '<br>“' + esc(r.note) + '”' : "")
+    : isOutage
+    ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) +
+      (r.offStart || r.offEnd ? ' (' + esc(r.offStart || "?") + ' to ' + esc(r.offEnd || "?") + ')' : "") +
+      ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + attachLinkHtml(r)
+    : isOffline
+    ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' from ' + esc(fmtClock(new Date(r.startAt))) +
+      ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + (proofOk(r.photo) ? ' · photo attached' : '')
+    : isLeave
+    ? esc(u.name) + ' · ' + esc(leaveTypeDef(r.type).label) + ' on ' + esc(fmtShortDate(r.date)) +
+      (r.cwd ? ' · <strong style="color:var(--amber)">Critical Working Day</strong>' : "") +
+      (r.doc ? ' · document attached' : "") +
+      (r.filedBy ? ' · filed by ' + esc(r.filedByName || "a lead") : "") +
+      (r.note ? '<br>“' + esc(r.note) + '”' : "")
+    : isAdd
+    ? esc(u.name) + ' wants logs for ' + esc(fmtShortDate(r.date)) +
+      ' · in ' + esc(r.reqIn) + (r.reqOut ? ', out ' + esc(r.reqOut) : ', still open') +
+      (r.note ? '<br>“' + esc(r.note) + '”' : "")
+    : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
+      ((r.reqPauses || []).length ? " · break times" : "") +
+      (r.note ? '<br>“' + esc(r.note) + '”' : "");
+  return { when: when, what: what };
+}
+function reqLogStatusChip(r){
+  if(r.status === "approved")
+    return '<span class="reqtag approved">Approved</span>' +
+      (r.resolvedBy ? ' <span class="muted" style="font-size:.78rem">by @' + esc(r.resolvedBy) + "</span>" : "");
+  if(r.status === "declined")
+    return '<span class="reqtag declined">Declined</span>' +
+      (r.resolvedBy ? ' <span class="muted" style="font-size:.78rem">by @' + esc(r.resolvedBy) + "</span>" : "");
+  return '<span class="reqtag pending">Pending for Admin Approval</span>';
+}
+function renderReqLogs(me){
+  var isAdmin = me && me.role === "admin";
+  var isLead = me && me.role === "lead";
+  /* scope: staff read their own; leads also read their team's; admins read all */
+  var teamIds = {};
+  if(isLead) state.users.forEach(function(x){ if(x.leadId === me.id) teamIds[x.id] = 1; });
+  var list = state.requests.filter(function(r){
+    if(isAdmin) return true;
+    if(r.userId === me.id) return true;
+    return isLead && teamIds[r.userId];
+  });
+  var want = $("rlFilter").value;
+  list = list.filter(function(r){ return want === "all" || r.status === want; });
+  list.sort(function(a, b){ return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); });
+
+  var box = $("reqLogList");
+  box.innerHTML = "";
+  list.forEach(function(r){
+    var u = userOf(r.userId) || { name: "someone", username: "" };
+    var t = reqLogText(r, u);
+    var mine = r.userId === me.id;
+    var canDecide = canApprove(r) && r.status === "pending";
+    /* leads may also clean up their team's records; admins may delete anything */
+    var canDelete = isAdmin || (isLead && (mine || teamIds[r.userId])) || mine;
+    var buttons = "";
+    if(!mine){
+      if(canDecide){
+        buttons += '<button class="btn btn-quiet" data-rlreview="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Review</button>' +
+          '<button class="btn btn-in" data-rlapprove="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Approve</button>' +
+          '<button class="btn btn-danger" data-rldecline="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Decline</button>';
+      }
+      if(canDelete){
+        buttons += '<button class="btn btn-quiet" data-rldelete="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>';
+      }
+    } else if(canDelete && (isAdmin || isLead)){
+      buttons += '<button class="btn btn-quiet" data-rldelete="' + esc(r.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>';
+    }
+    var li = document.createElement("li");
+    li.innerHTML =
+      '<span class="p-when readout" style="width:7.6em">' + esc(t.when) + '</span>' +
+      '<span class="p-what">' + t.what +
+        '<br><span class="muted" style="font-size:.8rem">Submitted ' +
+          esc(fmtShortDate(dayKey(new Date(r.createdAt || Date.now())))) + " " +
+          esc(fmtClock(new Date(r.createdAt || Date.now()))) +
+          (r.resolvedAt && r.status !== "pending"
+            ? " · decided " + esc(fmtShortDate(dayKey(new Date(r.resolvedAt)))) + " " + esc(fmtClock(new Date(r.resolvedAt)))
+            : (r.status === "pending" ? " · " + esc(assigneeText(r)) : "")) +
+        "</span></span>" +
+      '<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">' +
+        reqLogStatusChip(r) + buttons + "</span>";
+    box.appendChild(li);
+  });
+  show($("reqLogEmpty"), list.length === 0);
+  var pendingCount = list.filter(function(r){ return r.status === "pending"; }).length;
+  $("rlBadge").textContent = list.length
+    ? "· " + list.length + (pendingCount ? " (" + pendingCount + " waiting)" : "") : "";
+}
+
+/* One-click Approve = the review dialog's approval with the values the request
+   already carries (the same defaults the dialogs prefill). One-click Decline
+   mirrors every dialog's decline. Both guard decisions the same way. */
+function quickApprove(reqId){
+  function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
+  var r = getReq();
+  if(!r) return;
+  var blocked = guardDecision(r);
+  if(blocked){ toast(blocked); return; }
+  var u = userOf(r.userId);
+  var who = currentUser();
+  function seal(msg){
+    r.status = "approved"; r.resolvedAt = new Date().toISOString();
+    r.resolvedBy = who ? who.username : ""; r.seen = false;
+    save(); render();
+    toast(msg + " — logged as @" + (who ? who.username : "admin") + ".");
+  }
+  try {
+    if(r.kind === "leave" || r.kind === "offline"){
+      var d = r.kind === "leave" ? leaveTypeDef(r.type) : null;
+      logEdit(null, r.kind === "leave" ? "leave-approve" : "offline-approve",
+        [(r.kind === "leave" ? "approved @" + u.username + "'s " + d.label.toLowerCase() + " for " +
+            fmtShortDate(r.date) + (d.paid ? " — " + (r.hours || 8) + " paid hours" : "") +
+            (r.cwd ? " (Critical Working Day override)" : "")
+          : "acknowledged @" + u.username + "'s offline report for " + fmtShortDate(r.date) +
+            " (" + outageLabel(r.outage).toLowerCase() + ")")],
+        { userId: r.userId, date: r.date, person: u.name });
+      seal(r.kind === "leave" ? "Time off approved" : "Offline report acknowledged");
+      return;
+    }
+    if(r.kind === "daySched"){
+      var hours = daySchedHours(r);
+      if(!hours){ toast("That request has unreadable times — use Review to decline it."); return; }
+      var target = state.users.filter(function(x){ return x.id === r.userId; })[0];
+      if(!target){ toast("That person is no longer on the list."); return; }
+      target.schedOverrides = target.schedOverrides || {};
+      target.schedOverrides[r.date] = hours;
+      logEdit(null, "sched-approve", ["schedule change for " + fmtShortDate(r.date) + ": " + fmtRange(hours)],
+        { userId: target.id, person: target.name, date: r.date });
+      seal("Schedule applied for " + fmtShortDate(r.date));
+      return;
+    }
+    if(r.kind === "schedule"){
+      var t = state.users.filter(function(x){ return x.id === r.userId; })[0];
+      if(!t){ toast("That person is no longer on the list."); return; }
+      var reqFrom = /^\d{4}-\d{2}-\d{2}$/.test(String(r.from || "")) ? r.from : dayKey(new Date());
+      var changes = schedChanges(t.sched || null, r.sched || null);
+      if(!changes.length) changes.push("schedule confirmed — nothing was different");
+      changes.unshift("approved @" + t.username + "'s schedule request (effective " + fmtShortDate(reqFrom) + ")");
+      setSchedule(t, r.sched || null, reqFrom);
+      logEdit(null, "sched-approve", changes, { userId: t.id, person: t.name, date: null });
+      seal("Schedule approved and applied for " + t.name);
+      return;
+    }
+    if(r.kind === "add"){
+      if(findEntry(r.entryId) || entriesFor(r.userId).some(function(e){ return e.date === r.date && e.id !== r.entryId; })){
+        toast("That day already has a shift on it — use Review instead."); return;
+      }
+      if(parseTime(r.reqIn) === null){ toast("That request has unreadable times — use Review instead."); return; }
+      if(!r.reqOut && openEntry(r.userId)){ toast(u.name + " is already clocked in — clock them out first."); return; }
+      var entry = { id: nextId("e"), userId: r.userId, date: r.date, inAt: null, outAt: null, pauses: [] };
+      var err = applyEditedTimes(entry, r.date, r.reqIn, r.reqOut || "");
+      if(err){ toast(err); return; }
+      state.entries.push(entry);
+      logEdit(entry, "add", ["approved @" + u.username + "'s logs for " + fmtShortDate(r.date) + " — " + describeShift(entry)]);
+      seal("Logs approved and written for " + fmtShortDate(r.date));
+      return;
+    }
+    if(r.kind === "outage"){
+      if(entriesFor(r.userId).some(function(e){ return e.date === r.date; })){
+        toast(u.name + " already has a shift on " + fmtShortDate(r.date) + " — use Review instead."); return;
+      }
+      var sched = schedForDay(u, r.date).day;
+      var wins = sched && !sched.flex ? schedWindows(sched) : [];
+      var inStr = wins.length ? fmtHM(wins[0].start) : (r.offStart || "");
+      var outStr = wins.length ? fmtHM(wins[wins.length - 1].end) : (r.offEnd || "");
+      if(parseTime(inStr) === null || parseTime(outStr) === null){
+        toast("No hours to credit from the schedule — use Review to set the times."); return;
+      }
+      var e2 = { id: nextId("e"), userId: r.userId, date: r.date, inAt: null, outAt: null, pauses: [] };
+      var err2 = applyEditedTimes(e2, r.date, inStr, outStr);
+      if(err2){ toast(err2); return; }
+      state.entries.push(e2);
+      logEdit(e2, "outage", ["credited " + fmtShortDate(r.date) + " " + describeShift(e2) +
+        " (" + outageLabel(r.outage).toLowerCase() + ")"]);
+      seal("Outage credited for " + fmtShortDate(r.date));
+      return;
+    }
+    /* r.kind === "shift": apply the requested correction to the shift itself */
+    var ent = findEntry(r.entryId);
+    if(!ent){ toast("That shift no longer exists — use Review to decline it."); return; }
+    var plan = (r.reqPauses || []).filter(function(s){ return s && s.type && (s.clear || s.start); });
+    var err3 = applyEditedTimes(ent, ent.date, r.reqIn, r.reqOut || "");
+    if(err3){ toast(err3); return; }
+    applyPauses(ent, plan);
+    logEdit(ent, "approve", (["approved @" + u.username + "'s request"])
+      .concat(plan.map(function(s){
+        var def = pauseDef(s.type);
+        return s.clear ? "removed " + def.label.toLowerCase()
+          : def.label + " set " + fmtPauseRange({ start: fmtClock(new Date(s.start)), end: s.end ? fmtClock(new Date(s.end)) : "" });
+      })));
+    seal("Correction approved and applied");
+  } catch (e) {
+    /* applyEditedTimes and friends sometimes throw; keep the outcome clean */
+    toast(e && e.message ? e.message : "That decision could not be applied — use Review.");
+  }
+}
+function quickDecline(reqId){
+  var r = state.requests.filter(function(x){ return x.id === reqId; })[0] || null;
+  if(!r) return;
+  var blocked = guardDecision(r);
+  if(blocked){ toast(blocked); return; }
+  var who = currentUser();
+  var u = userOf(r.userId);
+  var action =
+      r.kind === "offline" ? "offline-decline"
+    : r.kind === "leave"   ? "leave-decline"
+    : (r.kind === "schedule" || r.kind === "daySched") ? "sched-decline"
+    : "decline";
+  var what = r.kind === "schedule" ? "schedule request"
+    : r.kind === "daySched" ? "schedule change"
+    : r.kind === "outage" ? "outage report"
+    : r.kind === "offline" ? "offline report"
+    : r.kind === "leave" ? leaveTypeDef(r.type).label.toLowerCase()
+    : r.kind === "add" ? "logs"
+    : "request";
+  logEdit(null, action, ["declined @" + u.username + "'s " + what + " for " +
+    (r.kind === "schedule" ? "their roster" : fmtShortDate(r.date)) + (r.note ? " — " + r.note : "")],
+    { userId: r.userId, date: r.kind === "schedule" ? null : r.date, person: u.name });
+  r.status = "declined"; r.resolvedAt = new Date().toISOString();
+  r.resolvedBy = who ? who.username : ""; r.seen = false;
+  save(); render();
+  toast("Request declined — logged as @" + (who ? who.username : "admin") + ".");
+}
+function quickDelete(reqId){
+  var r = state.requests.filter(function(x){ return x.id === reqId; })[0] || null;
+  if(!r) return;
+  var me = currentUser();
+  var u = userOf(r.userId);
+  if(me.role !== "admin" && me.role !== "lead" && r.userId !== me.id){ toast("You can only remove your own requests."); return; }
+  openAct("Delete this request?",
+    '<p class="note" style="margin:0 0 8px">' + esc(u ? u.name : "someone") + "'s " +
+      esc(fmtShortDate(r.date || "")) + " " + esc(r.kind) + " request (" + esc(r.status) + ") will be removed permanently.</p>" +
+    '<p class="note" style="margin:0">The change history keeps every decision already logged, so only the request record itself goes away.</p>',
+    [
+      { label:"Cancel", cls:"btn-quiet", close:true },
+      { label:"Delete", cls:"btn-danger", run:function(){
+          state.requests = state.requests.filter(function(x){ return x.id !== reqId; });
+          save(); render();
+          toast("Request deleted.");
+          return null;
+        } }
+    ]);
+}
 function renderTeam(){
   var me = currentUser(), isAdmin = me && me.role === "admin";
   var pending = state.requests.filter(function(r){ return r.status === "pending"; })
@@ -5076,6 +5363,7 @@ function setView(v){
   show($("vClock"), v === "clock");
   show($("vSheet"), v === "sheet");
   show($("vTeam"), v === "team");
+  show($("vReqLogs"), v === "reqlogs");
   show($("vSchedules"), v === "schedules");
   show($("vEmployees"), v === "employees");
   Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
@@ -6066,6 +6354,20 @@ $("tSignup").addEventListener("change", function(){
 $("reqList").addEventListener("click", function(ev){
   var id = ev.target.getAttribute && ev.target.getAttribute("data-review");
   if(id) reviewRequestDialog(id);
+});
+$("rlFilter").addEventListener("change", function(){
+  var u = currentUser();
+  if(u) renderReqLogs(u);
+});
+$("reqLogList").addEventListener("click", function(ev){
+  var t = ev.target;
+  if(!t.getAttribute) return;
+  var ap = t.getAttribute("data-rlapprove"), de = t.getAttribute("data-rldecline"),
+      del = t.getAttribute("data-rldelete"), rv = t.getAttribute("data-rlreview");
+  if(ap) quickApprove(ap);
+  else if(de) quickDecline(de);
+  else if(del) quickDelete(del);
+  else if(rv) reviewRequestDialog(rv);
 });
 $("teamBody").addEventListener("click", function(ev){
   var t = ev.target;
