@@ -216,6 +216,15 @@ var Demo = (function () {
     for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === userId) { tu = list[i]; break; }
     return !!tu && tu.role !== "admin" && tu.leadId === me.id;
   }
+  /* An approved payroll submission covers a person's date → its hours are final. */
+  function approvedPayrollCovering(db, userId, dateKey) {
+    dateKey = String(dateKey || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+    return asList(db.payroll).filter(function (s) {
+      return s && s.userId === userId && s.status === "approved" &&
+        String(s.periodStart || "") <= dateKey && dateKey <= String(s.periodEnd || "");
+    })[0] || null;
+  }
   function putItem(db, coll, item, self, isAdmin) {
     if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id) {
       var e400 = new Error("That change was missing an id."); e400.status = 400; throw e400;
@@ -295,6 +304,11 @@ var Demo = (function () {
       if (!isAdmin && item.userId !== self.id && !leadFor(db, self, item.userId)) {
         deny(403, "You can only change your own shifts.");
       }
+      var entryDate = typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date)
+        ? item.date : String(item.inAt).slice(0, 10);
+      if (!(isAdmin || self.payrollAccess === true) && approvedPayrollCovering(db, item.userId, entryDate)) {
+        deny(403, "That day's hours are locked — they belong to an approved payroll submission. Ask Payroll & Finance if a change is truly needed.");
+      }
       if (!isAdmin && item.userId === self.id) {
         /* the clock keeps working even after an admin corrected this shift:
            the correction and the history stay, the new punch folds in on top */
@@ -358,6 +372,15 @@ var Demo = (function () {
           if (!sameOutcome) deny(403, "Only an admin can approve or decline a request.");
         } else if ((item.status && item.status !== "pending") || item.resolvedBy) {
           deny(403, "Only an admin can approve or decline a request.");
+        }
+      }
+      /* a new request reaching an approved payroll day is refused — locked hours */
+      if (!existing && !isAdmin) {
+        var reqDate = typeof item.date === "string" ? item.date : "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(reqDate) && approvedPayrollCovering(db, reporterId, reqDate)) {
+          if (!(self.payrollAccess === true && reporterId === self.id)) {
+            deny(403, "That date is inside an approved payroll submission — its days are locked. Ask Payroll & Finance if something has to change.");
+          }
         }
       }
       if (decide) {

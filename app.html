@@ -367,6 +367,10 @@ dialog h2{margin:0 0 16px;font-size:1.05rem;font-weight:600}
 .audit-sign{margin:12px 0 0;padding-top:12px;border-top:1px dashed var(--line);color:var(--muted);font-size:.88rem}
 .audit-sign strong{color:var(--signal);font-weight:600}
 #auditList .p-what{color:var(--paper)}
+/* only the newest three changes show by default; the rest hide behind a toggle */
+#auditList li[data-extra]{display:none}
+#auditList.show-more li[data-extra]{display:flex}
+#auditMore{margin-top:8px}
 
 /* ---------- schedule editor ---------- */
 #schedDlg{width:min(660px,94vw);max-height:88vh;overflow:auto}
@@ -695,6 +699,7 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
       <div class="panel block audit hidden" id="auditBlock">
         <h2>Change history</h2>
         <ul class="punches" id="auditList"></ul>
+        <button class="btn btn-quiet hidden" id="auditMore" type="button" style="padding:6px 12px;font-size:.84rem">Show more</button>
         <p class="audit-sign" id="auditSign"></p>
       </div>
 
@@ -2161,6 +2166,11 @@ function schedDaysFor(u, key){
   return u.sched || null;              /* recorded before dates existed */
 }
 function schedForDay(u, key){
+  /* a per-day exception beats any roster: a one-day schedule change lives in
+     u.schedOverrides under the exact date (null = that day becomes a rest day) */
+  if(u && u.schedOverrides && Object.prototype.hasOwnProperty.call(u.schedOverrides, key)){
+    return { roster:true, day:u.schedOverrides[key] || null };
+  }
   var days = schedDaysFor(u, key);
   if(!days) return { roster:false, day:null };
   return { roster:true, day: days[keyToDate(key).getDay()] || null };
@@ -2691,6 +2701,8 @@ $("authForm").addEventListener("submit", function(ev){
 function punchIn(){
   var u = currentUser(); if(!u) return;
   if(openEntry(u.id)){ toast("You're already clocked in."); return; }
+  var lockNow = lockedMsg(u.id, dayKey(new Date()));
+  if(lockNow){ toast(lockNow); return; }
   var now = new Date();
   var ov = overlapErr(u.id, null, now.toISOString(), null);
   if(ov){ toast(ov); return; }
@@ -3109,7 +3121,7 @@ function renderSheet(me){
     if(unseen.length){
       unseen.forEach(function(r){
         r.seen = true;
-        if(r.kind === "schedule"){
+        if(r.kind === "schedule" || r.kind === "daySched"){
           toast(r.status === "approved" ? "Your schedule change was approved."
                                         : "Your schedule change was declined.");
         } else if(r.kind === "offline"){
@@ -3161,9 +3173,14 @@ function renderSheet(me){
     }).join("");
 
     var actionCell = '<span class="muted">—</span>';
+    /* approved-period days are final: no edit, no request, no logs (admins
+       and payroll access keep their buttons) */
+    var locked = !canOverrideLocks() && dateLockedFor(target.id, row.date);
     if(first){
       if(isAdmin){
         actionCell = '<button class="btn btn-quiet" data-edit="' + esc(first.id) + '" style="padding:4px 10px;font-size:.85rem">Edit</button>';
+      } else if(locked){
+        actionCell = '<span class="muted">🔒 Approved</span>';
       } else {
         var pending = pendingReqFor(first.id);
         var last = lastReqFor(first.id);
@@ -3176,6 +3193,8 @@ function renderSheet(me){
       var dayPending = pendingAddFor(target.id, row.date);
       actionCell = dayPending
         ? '<span class="reqtag pending">Review pending</span>'
+        : locked
+        ? '<span class="muted">🔒 Approved</span>'
         : '<button class="btn btn-quiet" data-reqday="' + esc(row.date) + '" data-requser="' + esc(target.id) + '" style="padding:4px 10px;font-size:.85rem">' +
           (isAdmin ? "Add logs" : "Request logs") + "</button>";
     }
@@ -3206,18 +3225,25 @@ function renderSheet(me){
   $("tLeave").textContent = fmtDur(totLeave);
   $("tWorked").textContent = fmtDur(totW);
 
-  /* change history sits at the bottom of the sheet and names the editor */
+  /* change history sits at the bottom of the sheet and names the editor.
+     Only the newest three are visible; "Show more" opens the rest. */
   var audit = auditInRange(target.id, from, to);
   var aList = $("auditList");
   aList.innerHTML = "";
-  audit.forEach(function(r){
+  audit.forEach(function(r, i){
     var h = auditHtml(r);
     var li = document.createElement("li");
     li.innerHTML = '<span class="p-when readout">' + esc(r.date ? fmtShortDate(r.date) : "—") + '</span>' +
       '<span class="p-what">' + esc(h.what + (r.person ? " · " + r.person : "")) + esc(h.detail) + '</span>' +
       '<span class="a-by">by ' + esc(h.who) + ' · ' + esc(fmtShortDate(dayKey(new Date(r.at)))) + " " + esc(fmtClock(new Date(r.at))) + '</span>';
+    if(i >= 3) li.setAttribute("data-extra", "");
     aList.appendChild(li);
   });
+  show($("auditMore"), audit.length > 3);
+  if(audit.length > 3){
+    aList.classList.remove("show-more");
+    $("auditMore").textContent = "Show " + (audit.length - 3) + " more changes";
+  }
   if(audit.length){
     var top = audit[0];
     var ht = auditHtml(top);
@@ -3230,6 +3256,15 @@ function renderSheet(me){
   show($("auditBlock"), audit.length > 0);
   renderPayroll(me, target, from, to, isPay);
 }
+/* "Show more" on the change history: opens the older changes, or folds them
+   back. Re-rendering the sheet always folds it, which is fine — the newest
+   three are what people look at first. */
+$("auditMore").addEventListener("click", function(){
+  var list = $("auditList");
+  var open = list.classList.toggle("show-more");
+  var hidden = list.querySelectorAll("li[data-extra]").length;
+  this.textContent = open ? "Show fewer changes" : "Show " + hidden + " more changes";
+});
 
 /* ---------------- payroll submissions ----------------
    A staff member submits the selected pay period; the record keeps the exact
@@ -3241,6 +3276,37 @@ function payrollTag(s){
   var cls = s.status === "approved" ? "approved" : s.status === "rejected" ? "declined" : "pending";
   var label = s.status === "approved" ? "Approved" : s.status === "rejected" ? "Rejected" : "Submitted to Payroll & Finance";
   return '<span class="reqtag ' + cls + '">' + esc(label) + "</span>";
+}
+/* ---------------- approved-days lock ----------------
+   Once Payroll & Finance approve a submitted period, those days' hours are
+   final: the person can no longer edit shifts, request corrections or report
+   outages inside that range, and the attendance tabs stop accepting fills.
+   Admins and people with payroll access can still fix records there. */
+function approvedPayrollsFor(uid){
+  return (Array.isArray(state.payroll) ? state.payroll : []).filter(function(s){
+    return s && s.userId === uid && s.status === "approved";
+  });
+}
+function payrollLockFor(uid, dateKey){
+  dateKey = String(dateKey || "");
+  return approvedPayrollsFor(uid).filter(function(s){
+    return String(s.periodStart || "") <= dateKey && dateKey <= String(s.periodEnd || "");
+  })[0] || null;
+}
+function dateLockedFor(uid, dateKey){
+  return !!payrollLockFor(uid, dateKey);
+}
+function canOverrideLocks(){
+  var me = currentUser();
+  return !!me && (me.role === "admin" || me.payrollAccess === true);
+}
+/* the human-readable reason when a write hits an approved day ("" = allowed) */
+function lockedMsg(uid, dateKey){
+  if(canOverrideLocks()) return "";
+  var rec = payrollLockFor(uid, dateKey);
+  if(!rec) return "";
+  return "The hours for " + fmtShortDate(dateKey) + " are locked — they are part of the approved payroll submission " +
+    fmtShortDate(rec.periodStart) + " – " + fmtShortDate(rec.periodEnd) + ". Ask Payroll & Finance if a change is genuinely needed.";
 }
 function renderPayroll(me, target, from, to, isPay){
   var canSeeAll = me.role === "admin" || me.payrollAccess === true;
@@ -3276,11 +3342,43 @@ function renderPayroll(me, target, from, to, isPay){
                 '<button class="btn btn-quiet" data-payact="rejected" data-pay="' + esc(s.id) + '" style="padding:4px 10px;font-size:.82rem">Reject</button>';
     }
     var li = document.createElement("li");
-    li.innerHTML = '<span class="p-when readout">' + esc(fmtShortDate(s.periodStart)) + '</span>' +
-      '<span class="p-what"><strong>' + esc(who) + '</strong> · ' + esc(fmtShortDate(s.periodStart)) + " – " + esc(fmtShortDate(s.periodEnd)) +
-        '<br><span class="muted" style="font-size:.8rem">' + esc(fmtDur(s.totalWorkedMs || 0)) + " worked · submitted " +
+    var summary =
+      '<strong>' + esc(who) + '</strong>' +
+      (s.username ? ' <span class="muted">@' + esc(s.username) + "</span>" : "") +
+      ' · ' + esc(fmtShortDate(s.periodStart)) + " – " + esc(fmtShortDate(s.periodEnd)) +
+      '<br><span class="muted" style="font-size:.8rem">Submitted ' +
         esc(fmtShortDate(dayKey(new Date(s.submittedAt)))) + " " + esc(fmtClock(new Date(s.submittedAt))) +
-        (s.decidedBy ? " · decided by @" + esc(s.decidedBy) : "") + "</span></span>" +
+        " · " + esc(String(s.workedDays || (s.rows || []).length || 0)) + " worked day" +
+        (+(s.workedDays || (s.rows || []).length) === 1 ? "" : "s") +
+        " · " + esc(fmtDur(s.totalWorkedMs || 0)) + " total hours" +
+        (s.totalLeaveMs ? " (incl. " + esc(fmtDur(s.totalLeaveMs)) + " paid leave)" : "") +
+        (s.decidedBy ? " · decided by @" + esc(s.decidedBy) : "") + "</span>";
+    /* the approver can open the day-by-day log behind the summary */
+    var rows = Array.isArray(s.rows) ? s.rows : [];
+    var detail = "";
+    if(rows.length && (canSeeAll || s.userId === me.id)){
+      var inner = rows.map(function(x){
+        return '<tr>' +
+          '<td style="padding:2px 8px 2px 0">' + esc(fmtShortDate(x.date)) + "</td>" +
+          '<td style="padding:2px 8px">' + esc(x.inAt ? fmtClock(new Date(x.inAt)) : "—") + "</td>" +
+          '<td style="padding:2px 8px">' + esc(x.outAt ? fmtClock(new Date(x.outAt)) : "still open") + "</td>" +
+          '<td style="padding:2px 8px;text-align:right">' + esc(fmtDur(x.workedMs || 0)) + "</td>" +
+          '<td style="padding:2px 8px;text-align:right">' + esc(Math.round((x.breakMs || 0) / 60000)) + " min unpaid breaks</td>" +
+          '<td style="padding:2px 8px;text-align:right">' + (x.leaveMs ? esc(fmtDur(x.leaveMs)) + " paid leave" : "") + "</td>" +
+        "</tr>";
+      }).join("");
+      detail = '<details style="margin-top:6px">' +
+        '<summary class="muted" style="cursor:pointer">View the day-by-day timelog of this ' +
+          esc(fmtShortDate(s.periodStart)) + " – " + esc(fmtShortDate(s.periodEnd)) + " timesheet</summary>" +
+        '<table style="font-size:.8rem;margin-top:4px"><tbody>' +
+          '<tr style="color:var(--amber)"><td style="padding:2px 8px 2px 0">Date</td><td style="padding:2px 8px">In</td>' +
+          '<td style="padding:2px 8px">Out</td><td style="padding:2px 8px;text-align:right">Worked</td>' +
+          '<td style="padding:2px 8px;text-align:right">Unpaid breaks</td><td style="padding:2px 8px"></td></tr>' +
+          inner +
+        "</tbody></table></details>";
+    }
+    li.innerHTML = '<span class="p-when readout">' + esc(fmtShortDate(s.periodStart)) + '</span>' +
+      '<span class="p-what">' + summary + detail + "</span>" +
       '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + payrollTag(s) + actions + "</span>";
     list.appendChild(li);
   });
@@ -3354,16 +3452,23 @@ function renderTeam(){
   pending.forEach(function(r){
     var u = userOf(r.userId);
     var isSched = r.kind === "schedule";
+    var isDaySched = r.kind === "daySched";
     var isOutage = r.kind === "outage";
     var isOffline = r.kind === "offline";
     var isLeave = r.kind === "leave";
     var isAdd = r.kind === "add";
-    var when = isSched ? "Schedule" : isOutage ? "Outage" : isOffline ? "Offline"
+    var when = (isSched || isDaySched) ? "Schedule" : isOutage ? "Outage" : isOffline ? "Offline"
       : isLeave ? "Time off" : isAdd ? "Logs" : esc(fmtShortDate(r.date));
     var what = isSched
       ? esc(u.name) + ' wants a new schedule'
+      : isDaySched
+      ? esc(u.name) + ' · schedule change for ' + esc(fmtShortDate(r.date)) +
+        ' · ' + esc(r.reqIn) + " to " + esc(r.reqOut) +
+        (r.note ? '<br>“' + esc(r.note) + '”' : "")
       : isOutage
-      ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”'
+      ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) +
+        (r.offStart || r.offEnd ? ' (' + esc(r.offStart || "?") + ' to ' + esc(r.offEnd || "?") + ')' : "") +
+        ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + attachLinkHtml(r)
       : isOffline
       ? esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' from ' + esc(fmtClock(new Date(r.startAt))) +
         ' — ' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + (proofOk(r.photo) ? ' · photo attached' : '')
@@ -3380,7 +3485,7 @@ function renderTeam(){
       : esc(u.name) + ' wants in ' + esc(r.reqIn) + (r.reqOut ? ", out " + esc(r.reqOut) : ", still open") +
         ((r.reqPauses || []).length ? " · break times" : "");
     var li = document.createElement("li");
-    li.innerHTML = '<span class="p-when readout"' + ((isSched || isOffline || isLeave || isAdd) ? ' style="width:7.6em"' : "") + '>' +
+    li.innerHTML = '<span class="p-when readout"' + ((isSched || isDaySched || isOffline || isLeave || isAdd) ? ' style="width:7.6em"' : "") + '>' +
       when + '</span>' +
       '<span class="p-what">' + what +
       '<br><span class="muted" style="font-size:.8rem">' + esc(assigneeText(r)) + "</span></span>" +
@@ -4164,6 +4269,9 @@ function submitRequestDialog(entry){
   var entryId = entry.id;          /* looked up again when the form is sent, so a
                                       background sync can't leave us with a stale copy */
   var u = currentUser();
+  if(!u) return;
+  var lock = lockedMsg(entry.userId, entry.date);
+  if(lock){ toast(lock); return; }
   var curOut = entry.outAt ? fmtClock(new Date(entry.outAt)) : "";
   openAct("Request a correction",
     '<p class="note" style="margin:0 0 14px">On file for ' + esc(fmtShortDate(entry.date)) + ': clocked in ' +
@@ -4180,6 +4288,8 @@ function submitRequestDialog(entry){
           var cur = findEntry(entryId);
           if(!cur) return "That shift is no longer on the sheet.";
           if(pendingReqFor(cur.id)) return "There's already a pending request for this shift.";
+          var lockNow = lockedMsg(cur.userId, cur.date);
+          if(lockNow) return lockNow;
           var inStr = body.querySelector("#reqIn").value.trim();
           var outStr = body.querySelector("#reqOut").value.trim();
           var note = body.querySelector("#reqNote").value.trim();
@@ -4206,6 +4316,7 @@ function reviewRequestDialog(reqId){
   var r = getReq();
   if(!r) return;
   if(r.kind === "schedule") return reviewSchedRequestDialog(reqId);
+  if(r.kind === "daySched") return reviewDaySchedRequestDialog(reqId);
   if(r.kind === "outage") return reviewOutageRequestDialog(reqId);
   if(r.kind === "offline") return reviewOfflineRequestDialog(reqId);
   if(r.kind === "leave") return reviewLeaveRequestDialog(reqId);
@@ -4481,6 +4592,8 @@ function submitAddDialog(uid, dateKey){
   var person = userOf(uid) || me;
   var isAdmin = me.role === "admin";
   if(!isAdmin && uid !== me.id){ toast("Only an admin can add logs for someone else."); return; }
+  var lock = lockedMsg(uid, dateKey);
+  if(lock){ toast(lock); return; }
   var sched = schedOf(person, dateKey);
   var wins = sched && !sched.flex ? schedWindows(sched) : [];
   var defIn = wins.length ? fmtHM(wins[0].start) : "";
@@ -4496,6 +4609,8 @@ function submitAddDialog(uid, dateKey){
     [
       { label:"Cancel", cls:"btn-quiet", close:true },
       { label: isAdmin ? "Add shift" : "Submit request", cls:"btn-in", run:function(body){
+          var lockNow = lockedMsg(uid, dateKey);
+          if(lockNow) return lockNow;
           var inStr = body.querySelector("#adIn").value.trim();
           var outStr = body.querySelector("#adOut").value.trim();
           var note = body.querySelector("#adNote").value.trim();
@@ -4652,10 +4767,20 @@ function outageLabel(kind){
     : kind === "other" ? "Other issue"
     : "No power";
 }
+/* Proof attachments: a PNG, JPEG or PDF data URL
+   (the uploader's file, re-encoded on the spot). */
+function attachLinkHtml(req){
+  if(!proofOk(req.photo)) return "";
+  var pdf = /^data:application\/pdf;base64,/i.test(req.photo);
+  var name = req.photoName || (pdf ? "proof.pdf" : "proof.png");
+  return ' · <a class="attach" href="' + esc(req.photo) + '" download="' + esc(name) + '" target="_blank" rel="noopener">' +
+    (pdf ? "📄 " : "🖼️ ") + esc(name) + "</a>";
+}
 /* Only our own shrunken JPEGs (or a real image data URL) are ever rendered
    back, so a hand-written request can't smuggle a script into a photo slot. */
 function proofOk(photo){
-  return typeof photo === "string" && /^data:image\/(jpeg|png|webp);base64,/i.test(photo);
+  return typeof photo === "string" && (/^data:image\/(jpeg|png|webp);base64,/i.test(photo) ||
+    /^data:application\/pdf;base64,/i.test(photo));
 }
 function reviewOutageRequestDialog(reqId){
   function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
@@ -4663,14 +4788,16 @@ function reviewOutageRequestDialog(reqId){
   if(!r) return;
   var u = userOf(r.userId);
   var me = currentUser();
-  var sched = schedOf(u, r.date);
-  var wins = sched ? schedWindows(sched) : [];
-  var defIn = wins.length ? fmtHM(wins[0].start) : "";
-  var defOut = wins.length ? fmtHM(wins[wins.length - 1].end) : "";
+  var sched = schedForDay(u, r.date).day;
+  var wins = sched && !sched.flex ? schedWindows(sched) : [];
+  var defIn = wins.length ? fmtHM(wins[0].start) : (r.offStart || "");
+  var defOut = wins.length ? fmtHM(wins[wins.length - 1].end) : (r.offEnd || "");
   var hasShift = entriesFor(r.userId).some(function(e){ return e.date === r.date; });
   openAct("Outage report — " + u.name,
-    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) + ' · ' + esc(assigneeText(r)) + '</p>' +
-    '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "") + '”</p>' +
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(outageLabel(r.outage)) +
+      (r.offStart || r.offEnd ? ' · offline ' + esc(r.offStart || "?") + ' to ' + esc(r.offEnd || "?") : "") +
+      ' · ' + esc(assigneeText(r)) + '</p>' +
+    '<p style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note || "") + '”' + attachLinkHtml(r) + '</p>' +
     '<p class="note" style="margin:0 0 14px">Scheduled that day: <strong>' +
       (sched ? esc(fmtRange(sched)) : "no schedule on file") + '</strong>. ' +
       'Approving writes a shift for the hours below and signs it as @' +
@@ -4776,6 +4903,67 @@ function reviewOfflineRequestDialog(reqId){
 }
 /* A request to change a schedule: the admin reads it side by side and then
    approves or declines, and whichever they do is written into the history. */
+/* a one-day schedule change: approving writes a per-date exception into the
+   person's schedule, and every other day of their roster is untouched */
+function daySchedHours(req){
+  var s = parseTime(req.reqIn), e = parseTime(req.reqOut);
+  if(s === null || e === null) return null;
+  return { start: s, end: e < s ? e + 24 * 60 : e };
+}
+function reviewDaySchedRequestDialog(reqId){
+  function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
+  var r = getReq();
+  if(!r) return;
+  var u = userOf(r.userId);
+  var me = currentUser();
+  var cur = schedForDay(u, r.date);
+  var curTxt = cur.day && !cur.day.flex ? fmtRange(cur.day) : cur.day && cur.day.flex ? "Flexible hours" : cur.roster ? "Rest day" : "No schedule on file";
+  openAct("Schedule change (one day) — " + u.name,
+    '<p class="note" style="margin:0 0 6px">' + esc(fmtShortDate(r.date)) + ' · ' + esc(DAY_NAMES[keyToDate(r.date).getDay()]) + ' · ' + esc(assigneeText(r)) + '</p>' +
+    '<p class="note" style="margin:0 0 10px">On file for that day: <strong>' + esc(curTxt) + '</strong></p>' +
+    '<p class="note" style="margin:0 0 10px">They are asking for: <strong>' + esc(r.reqIn) + ' to ' + esc(r.reqOut) + '</strong></p>' +
+    (r.note ? '<p class="note" style="margin:0 0 14px">' + esc(u.name) + ' says: “' + esc(r.note) + '”</p>' : '') +
+    '<label class="field"><span>Note back to ' + esc(u.name) + ' (optional)</span><textarea id="revNote" rows="2"></textarea></label>' +
+    '<p class="note" style="margin:0">Approving changes <em>only</em> ' + esc(fmtShortDate(r.date)) + ' and writes your username — ' +
+      '<strong style="color:var(--amber)">@' + esc(me ? me.username : "") + '</strong> — into the change history at the bottom of their sheet.</p>',
+    [
+      { label:"Decline", cls:"btn-danger", run:function(){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var who = currentUser();
+          var target = userOf(req.userId);
+          req.status = "declined"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.seen = false;
+          logEdit(null, "sched-decline", ["declined @" + target.username + "'s schedule change for " +
+            fmtShortDate(req.date) + (req.note ? " — " + req.note : "")],
+            { userId:req.userId, person:target.name, date:req.date });
+          save(); render(); toast("Schedule change declined — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } },
+      { label:"Approve", cls:"btn-in", run:function(body){
+          var req = getReq();
+          var blocked = guardDecision(req);
+          if(blocked) return blocked;
+          var hours = daySchedHours(req);
+          if(!hours) return "That request has unreadable times — only Decline is available.";
+          var target = state.users.filter(function(x){ return x.id === req.userId; })[0];
+          if(!target) return "That person is no longer on the list.";
+          var who = currentUser();
+          target.schedOverrides = target.schedOverrides || {};
+          target.schedOverrides[req.date] = hours;
+          logEdit(null, "sched-approve",
+            ["schedule change for " + fmtShortDate(req.date) + ": " + fmtRange(hours)],
+            { userId: target.id, person: target.name, date: req.date });
+          req.status = "approved"; req.resolvedAt = new Date().toISOString();
+          req.resolvedBy = who ? who.username : ""; req.resolverNote = body.querySelector("#revNote").value.trim();
+          req.seen = false;
+          save(); render();
+          toast("Schedule applied for " + fmtShortDate(req.date) + " — logged as @" + (who ? who.username : "admin") + ".");
+          return null;
+        } }
+    ]);
+}
 function reviewSchedRequestDialog(reqId){
   function getReq(){ return state.requests.filter(function(x){ return x.id === reqId; })[0] || null; }
   var r = getReq();
@@ -4831,6 +5019,8 @@ function editShiftDialog(entry){
                                       background and replaces these objects */
   var u = userOf(entry.userId);
   var me = currentUser();
+  var lock = lockedMsg(entry.userId, entry.date);
+  if(lock){ toast(lock); return; }
   openAct("Edit shift — " + u.name,
     '<p class="note" style="margin:0 0 14px">' + esc(fmtShortDate(entry.date)) + ' · on file now: ' + esc(describeShift(entry)) +
       ' · ' + esc(pauseSummary(entry)) + '</p>' +
@@ -5167,6 +5357,7 @@ $("sSubmit").addEventListener("click", function(){
     rec.submittedAt = new Date().toISOString();
     rec.submittedBy = me.id; rec.submittedByName = me.name;
     rec.totalWorkedMs = total; rec.totalWorked = fmtDur(total); rec.totalLeaveMs = leaveTotal; rec.rows = list;
+    rec.workedDays = list.length;
     rec.status = "submitted"; rec.decidedAt = null; rec.decidedBy = "";
     rec.visibleTo = state.users.filter(function(x){ return x.role === "admin" || x.payrollAccess === true; })
       .map(function(x){ return x.id; });
@@ -5528,38 +5719,121 @@ $("sAdd").addEventListener("click", function(){
 $("btnOutageReq").addEventListener("click", function(){
   var u = currentUser();
   if(!u) return;
+  var doc = { data: "", name: "", kind: "" };
   openAct("Report power / internet outage",
     '<label class="field"><span>Day without power or internet (EST)</span><input type="date" id="outDate" value="' + dayKey(new Date()) + '"></label>' +
+    '<label class="field"><span>Offline from (EST)</span><input id="outStart" placeholder="9:00 AM"></label>' +
+    '<label class="field"><span>Back in / online again (EST)</span><input id="outEnd" placeholder="1:30 PM"></label>' +
     '<label class="field"><span>What was out?</span><select id="outKind"><option value="power">No power</option><option value="internet">No internet</option><option value="both">No power and no internet</option><option value="other">Others</option></select></label>' +
     '<label class="field"><span>What happened?</span><textarea id="outNote" rows="3" placeholder="e.g. brownout 9 AM to 3 PM, could not clock in"></textarea></label>' +
+    '<label class="field"><span>Proof — attach a PNG or PDF (optional, strongly preferred)</span>' +
+      '<input type="file" id="outFile" accept="image/png,image/jpeg,application/pdf">' +
+      '<span class="emp-computed" id="outDocName">No file chosen yet.</span></label>' +
     '<p class="note" style="margin:0">An admin reviews this before anything changes — approving writes the day onto your timesheet.</p>',
     [
       { label:"Cancel", cls:"btn-quiet", close:true },
       { label:"Submit report", cls:"btn-in", run:function(body){
           var dateKey = body.querySelector("#outDate").value;
           if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return "Pick the day this happened.";
+          var startStr = body.querySelector("#outStart").value.trim();
+          var endStr = body.querySelector("#outEnd").value.trim();
+          var sMin = parseTime(startStr), eMin = parseTime(endStr);
+          if(sMin === null) return "Enter the time you went offline, like 9:00 AM.";
+          if(eMin === null) return "Enter the time you were back online, like 1:30 PM.";
+          if(eMin <= sMin) return "You were back online after you went offline — check the two times.";
           var kind = body.querySelector("#outKind").value;
           if(kind !== "power" && kind !== "internet" && kind !== "both" && kind !== "other") return "Pick what was out.";
           var note = body.querySelector("#outNote").value.trim();
           if(note.length < 3) return "Add a short note about what happened.";
+          // keep the outage window on the record so an admin sees the exact span
+          var startAt = etToUtc(dateKey, sMin).toISOString();
+          var endAt = etToUtc(dateKey, eMin).toISOString();
           var dup = state.requests.some(function(r){ return r.userId === u.id && r.kind === "outage" && r.date === dateKey && r.status === "pending"; });
           if(dup) return "There's already a pending outage report for that day.";
+          if(!canOverrideLocks() && dateLockedFor(u.id, dateKey)) return "That date's hours are locked (approved in a payroll submission).";
           state.requests.push({
             id: nextId("r"), userId: u.id, date: dateKey, kind: "outage",
             outage: kind, note: note, status: "pending", createdAt: new Date().toISOString(),
-            resolvedAt: null, resolvedBy: "", seen: true
+            resolvedAt: null, resolvedBy: "", seen: true,
+            offStart: startStr, offEnd: endStr, offStartAt: startAt, offEndAt: endAt,
+            photo: doc.data || "", photoName: doc.name || ""
           });
           save(); render();
           toast("Outage reported — an admin reviews it before anything changes.");
           return null;
         } }
     ]);
+  var fileEl = document.querySelector("#actBody #outFile");
+  if(fileEl) fileEl.addEventListener("change", function(){
+    var f = this.files && this.files[0];
+    var nameEl = document.querySelector("#actBody #outDocName");
+    if(!f){ doc.data = ""; doc.name = ""; if(nameEl) nameEl.textContent = "No file chosen yet."; return; }
+    if(!docOk(f)){ if(nameEl) nameEl.textContent = "Choose a PNG, JPEG or PDF."; this.value = ""; return; }
+    if(f.size > 8 * 1024 * 1024){ if(nameEl) nameEl.textContent = "That file is too big — pick one under 8 MB."; this.value = ""; return; }
+    if(nameEl) nameEl.textContent = "Reading " + f.name + "…";
+    readLeaveDoc(f, function(err, data, nm){
+      if(err){ doc.data = ""; doc.name = ""; if(nameEl) nameEl.textContent = err; return; }
+      doc.data = data; doc.name = nm;
+      if(nameEl) nameEl.textContent = nm + " attached.";
+    });
+  });
 });
 
-/* staff ask for a new schedule from the clock screen */
+/* A calendar date plus minutes-of-day becomes the matching ISO moment (EST). */
+function dayHourUtc(dateKey, minutes){
+  var p = dateKey.split("-");
+  var h = Math.floor(minutes / 60), m = minutes % 60;
+  return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], h, m, 0)).toISOString();
+}
+
+/* staff ask for a schedule change for today, and only today: the request pins
+   start and end times for this one date, with the reason written as notes.
+   Approving writes a per-day exception into the person's schedule overrides. */
+function pendingDaySchedReq(uid){
+  return state.requests.filter(function(r){
+    return r.kind === "daySched" && r.userId === uid && r.status === "pending";
+  })[0] || null;
+}
 $("btnSchedReq").addEventListener("click", function(){
   var u = currentUser();
-  if(u) openSchedDialog(u, "request");
+  if(!u) return;
+  if(!canOverrideLocks() && dateLockedFor(u.id, dayKey(new Date()))){
+    toast("That day's hours are already approved — the sheet is locked.");
+    return;
+  }
+  if(pendingDaySchedReq(u.id)){ toast("You already have a schedule change waiting for review."); return; }
+  var today = dayKey(new Date());
+  var sched = schedForDay(u, today);
+  var cur = sched.day && !sched.day.flex ? fmtRange(sched.day) : sched.day && sched.day.flex ? "Flexible hours" : sched.roster ? "Rest day" : "No schedule on file";
+  openAct("Request a schedule change · " + fmtShortDate(today),
+    '<p class="note" style="margin:0 0 10px">This request covers <strong>today only</strong> — ' +
+      esc(fmtShortDate(today)) + ' · ' + esc(DAY_NAMES[keyToDate(today).getDay()]) + '.</p>' +
+    '<p class="note" style="margin:0 0 14px">On file for you that day: <strong>' + esc(cur) + '</strong></p>' +
+    '<label class="field"><span>New start time (EST)</span><input id="dsIn" placeholder="9:00 AM"></label>' +
+    '<label class="field"><span>New end time (EST)</span><input id="dsOut" placeholder="6:00 PM — past midnight is fine"></label>' +
+    '<label class="field"><span>Notes — the reason (e.g. late login, early out, client approved)</span>' +
+      '<textarea id="dsNote" rows="3" placeholder="e.g. client asked to start at noon today"></textarea></label>' +
+    '<p class="note" style="margin:0">An admin reviews this before anything changes. Approving sets these hours for today only — every other day keeps its usual schedule.</p>',
+    [
+      { label:"Cancel", cls:"btn-quiet", close:true },
+      { label:"Submit request", cls:"btn-in", run:function(body){
+          var inStr = body.querySelector("#dsIn").value.trim();
+          var outStr = body.querySelector("#dsOut").value.trim();
+          var note = body.querySelector("#dsNote").value.trim();
+          if(parseTime(inStr) === null) return "Enter the new start time like 9:00 AM.";
+          if(parseTime(outStr) === null) return "Enter the new end time like 6:00 PM.";
+          if(pendingDaySchedReq(u.id)) return "You already have a schedule change waiting for review.";
+          state.requests.push({
+            id: nextId("r"), userId: u.id, kind: "daySched", date: today,
+            reqIn: inStr, reqOut: outStr, note: note,
+            status: "pending", createdAt: new Date().toISOString(),
+            resolvedAt: null, resolvedBy: "", resolverNote: "", seen: true
+          });
+          save(); render();
+          toast("Schedule change requested for today — an admin reviews it first.");
+          return null;
+        } }
+    ]);
 });
 $("sheetBody").addEventListener("click", function(ev){
   var t = ev.target;
@@ -6084,7 +6358,9 @@ window.__sd = {
   workedMs: workedMs, unpaidMs: unpaidMs, breakOnlyMs: breakOnlyMs,
   etToUtc: etToUtc, localKey: localKey, dayKey: dayKey, fmtDur: fmtDur,
   applyEditedTimes: applyEditedTimes, toCsv: toCsv, dayRows: dayRows,
-  sheetPngData: sheetPngData, punchIn: punchIn, render: render
+  sheetPngData: sheetPngData, punchIn: punchIn, render: render,
+  schedForDay: schedForDay, dateLockedFor: dateLockedFor, lock: { canOverrideLocks: canOverrideLocks },
+  auditMore: { list: function(){ return document.getElementById("auditList"); } }
 };
 })();
 </script>

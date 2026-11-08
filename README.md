@@ -27,6 +27,20 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
   `sundial-backup-<date>.json` — accounts, shifts, requests, pay-roll records, announcements
   and the change history. POSTing that file to `/api/migrate` on an *empty* deployment
   restores everything, so keep dated copies of it somewhere safe.
+- **One-day schedule requests.** The staff *Request schedule change* popup covers today only:
+  it asks for a new start time, a new end time and notes (e.g. "client approved late login").
+  Approving stores a per-date exception (`schedOverrides`) — every other day keeps its roster.
+- **Outage reports carry their own window and proof.** The *Report power / internet outage*
+  popup asks for the date, the offline-from time and the back-online time, and can attach a
+  PNG or PDF; a reviewer sees the exact span and can open the proof.
+- **Change history is collapsible.** Only the newest three changes show; *Show more* opens
+  the rest (and folds them back).
+- **Payroll submissions shows the essentials.** Each submission reads: submitted date, staff
+  name, payroll dates, worked days, total hours — and the approver can expand the
+  day-by-day timelog behind it.
+- **Approved payroll locks its days.** Once a period is approved, no edits, correction
+  requests or log fills are accepted for days inside that range (UI and server side);
+  admins and people with payroll access keep their buttons.
 - Deleting a shift and approving or declining a staff correction request are logged the same
   way, so the admin who did it is always named at the bottom of the sheet.
 - The timesheet CSV gained an **Edited by** column; the punch log CSV now includes the
