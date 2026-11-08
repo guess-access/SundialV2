@@ -5570,6 +5570,11 @@ $("btnOut").addEventListener("click", function(){
   function leave(){
     if(auth) api("POST", "/logout").catch(function(){});
     storeAuth(null); blankState(); mode = "signin"; setView("clock");
+    /* signing out routes straight back to the landing page at the site root
+       (the check keeps the offline demo copy and tests from bouncing) */
+    if(/^https:\/\/sundialsolstice\.netlify\.app$/.test(window.location.origin)){
+      window.location.href = "/";
+    }
   }
   // send anything still unsaved before this device forgets it
   syncNow().then(function(){ return makePatch() ? syncNow() : null; }).then(leave, leave);
