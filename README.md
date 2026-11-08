@@ -45,6 +45,11 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
   their own history (`Pending for Admin Approval`, `Approved`, `Declined`) with a status
   filter; admins and leads also get one-click **Approve**, **Decline** and **Delete**
   right on each row (deletes confirm first; the change history keeps past decisions).
+- **Credentials tab (admin).** The login roster of every account — Name, Username, Role,
+  Active/Signed-off status and **Password**. Passcodes live as salted hashes, so a row
+  shows a passcode only once the admin set it via *Set passcode* (stored alongside the
+  hash and stripped from every non-admin's data server-side); user-chosen passcodes
+  can't be read back.
 - Deleting a shift and approving or declining a staff correction request are logged the same
   way, so the admin who did it is always named at the bottom of the sheet.
 - The timesheet CSV gained an **Edited by** column; the punch log CSV now includes the
