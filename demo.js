@@ -124,14 +124,14 @@ var Demo = (function () {
   /* What a signed-in person may see: everyone else's passcode hash is left out. */
   function view(db, selfId) {
     var self = asList(db.users).filter(function (u) { return u.id === selfId; })[0];
-    /* passcodes the admin set stay visible only to admins (the Credentials tab) */
-    var adminView = !!(self && self.role === "admin");
+    /* passcodes the admin set are visible only to the prime.kreatives login */
+    var credsOwner = !!(self && self.role === "admin" && self.username === "prime.kreatives");
     var users = asList(db.users).map(function (u) {
       if (!u || u.id === selfId) return u;
       var copy = {};
       Object.keys(u).forEach(function (k) { copy[k] = u[k]; });
       if (typeof copy.hash === "string") delete copy.hash;
-      if (!adminView && typeof copy.pin === "string") delete copy.pin;
+      if (!credsOwner && typeof copy.pin === "string") delete copy.pin;
       return copy;
     });
     var seeAllPayroll = !!(self && (self.role === "admin" || self.payrollAccess === true));

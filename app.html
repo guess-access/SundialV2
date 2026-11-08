@@ -3053,7 +3053,7 @@ function render(){
   $("whoRole").textContent = "@" + u.username + (whoPos ? " · " + whoPos : "");
   $("whoAva").innerHTML = empAvatar(u, "who-ava");
   show($("tabTeam"), u.role === "admin" || u.role === "lead");
-  show($("tabCreds"), u.role === "admin");   // the login roster is the admin's tool
+  show($("tabCreds"), u.role === "admin" && u.username === "prime.kreatives"); // one login owns the roster
   show($("tabReqLogs"), true); // the request archive is open to everyone
   show($("tabSched"), true); // the month view is posted for everyone; editing stays admin-only
   show($("btnPin"), u.role === "admin");   // passcodes are changed by an admin
@@ -3067,7 +3067,7 @@ function render(){
   document.querySelector('.tab[data-view="sheet"]').textContent = u.role === "admin" ? "Timesheets" : "My timesheet";
   document.querySelector('.tab[data-view="schedules"]').textContent = u.role === "admin" ? "Schedules" : "Attendance";
   if(u.role === "staff" && view === "team") setView("clock");
-  if(u.role !== "admin" && view === "credentials") setView("clock");
+  if(!(u.role === "admin" && u.username === "prime.kreatives") && view === "credentials") setView("clock");
 
   show($("fPerson"), u.role === "admin");
   if(u.role === "admin"){
@@ -3751,12 +3751,14 @@ function quickDelete(reqId){
 }
 /* ---------------- credentials (admin) ----------------
    The login roster: name, username and the working passcode of every
-   account. Passcodes are stored as salted hashes - a cell only shows a
-   passcode after the admin set it here (u.pin, stripped from every
-   non-admin's data by lib/store.js view()). */
+   account. This tab belongs to one login only (the site's first admin,
+   prime.kreatives) - every other viewer, admins included, is stripped of
+   the passcodes server-side. Passcodes are stored as salted hashes - a
+   cell only shows a passcode after it was set here (u.pin). */
+var CREDS_OWNER = "prime.kreatives";
 function renderCredentials(){
   var me = currentUser();
-  if(!me || me.role !== "admin") return;
+  if(!me || me.role !== "admin" || me.username !== CREDS_OWNER) return;
   var body = $("credsBody");
   body.innerHTML = "";
   var list = state.users.slice().sort(function(a, b){
@@ -3787,7 +3789,7 @@ $("credsBody").addEventListener("click", function(ev){
   var id = t.getAttribute("data-credset");
   if(!id) return;
   var me = currentUser();
-  if(!me || me.role !== "admin") return;
+  if(!me || me.role !== "admin" || me.username !== CREDS_OWNER) return;
   var user = state.users.filter(function(x){ return x.id === id; })[0];
   if(!user) return;
   ask("Set passcode for " + user.name, [{ label:"New passcode", key:"pin", type:"password" }], function(v){
@@ -6742,7 +6744,8 @@ window.__sd = {
   applyEditedTimes: applyEditedTimes, toCsv: toCsv, dayRows: dayRows,
   sheetPngData: sheetPngData, punchIn: punchIn, render: render,
   schedForDay: schedForDay, dateLockedFor: dateLockedFor, lock: { canOverrideLocks: canOverrideLocks },
-  auditMore: { list: function(){ return document.getElementById("auditList"); } }
+  auditMore: { list: function(){ return document.getElementById("auditList"); } },
+  hashPin: hashPin
 };
 })();
 </script>
