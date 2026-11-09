@@ -119,7 +119,10 @@ var Demo = (function () {
   function me(db, token) {
     var uid = token && db.sessions ? db.sessions[token] : null;
     if (typeof uid !== "string" || !uid) return null;
-    return asList(db.users).filter(function (u) { return u.id === uid; })[0] || null;
+    var u = asList(db.users).filter(function (x) { return x.id === uid; })[0] || null;
+    /* a deactivated account loses its session immediately */
+    if (u && u.active === false) return null;
+    return u;
   }
   /* What a signed-in person may see: everyone else's passcode hash is left out. */
   function view(db, selfId) {

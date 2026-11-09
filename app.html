@@ -776,7 +776,8 @@ if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme
         <h2>Credentials</h2>
         <p class="note" style="margin:0 0 12px">Every account with its working passcode. Passwords live as salted
           hashes, so a cell only shows a passcode after it was set here — use <em>Set passcode</em> to hand out or
-          refresh one. Passcodes a person chose themselves can't be read back.</p>
+          refresh one. Passcodes a person chose themselves can't be read back. <em>Deactivate</em> stops sign-ins
+          while keeping the account and history; <em>Delete</em> removes the account for good.</p>
         <div class="scroller">
           <table>
             <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Password</th><th></th></tr></thead>
@@ -3766,43 +3767,124 @@ function renderCredentials(){
   });
   list.forEach(function(u){
     var tr = document.createElement("tr");
+    var isMe = u.id === me.id;
     var status = u.active === false
-      ? '<span class="reqtag declined">Signed off</span>'
+      ? '<span class="reqtag declined">Deactivated</span>'
       : '<span class="reqtag approved">Active</span>';
     var pass = (typeof u.pin === "string" && u.pin)
       ? '<span class="readout">' + esc(u.pin) + "</span>"
       : '<span class="muted">hashed — not visible</span>';
+    var acts =
+      '<button class="btn btn-quiet" data-credset="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Set passcode</button> ';
+    if(!isMe){
+      /* Deactivate keeps the account and its history but stops sign-ins;
+         Reactivate turns it back on. Delete removes the account for good. */
+      acts += u.active === false
+        ? '<button class="btn btn-quiet" data-credtoggle="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Reactivate</button> '
+        : '<button class="btn btn-quiet" data-credtoggle="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Deactivate</button> ';
+      acts += '<button class="btn btn-danger" data-creddel="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Delete</button>';
+    }
     tr.innerHTML =
-      '<td>' + esc(u.name || "") + (u.id === me.id ? ' <span class="muted">(you)</span>' : "") + "</td>" +
+      '<td>' + esc(u.name || "") + (isMe ? ' <span class="muted">(you)</span>' : "") + "</td>" +
       '<td>@' + esc(u.username || "") + "</td>" +
       '<td>' + esc(u.role === "admin" ? "Admin" : u.role === "lead" ? "Lead" : "Staff") + "</td>" +
       '<td>' + status + "</td>" +
       '<td>' + pass + '</td>' +
-      '<td><button class="btn btn-quiet" data-credset="' + esc(u.id) + '" style="padding:4px 10px;font-size:.85rem">Set passcode</button></td>';
+      '<td>' + acts + '</td>';
     body.appendChild(tr);
   });
   show($("credsEmpty"), list.length === 0);
 }
 $("credsBody").addEventListener("click", function(ev){
   var t = ev.target;
-  if(!t.getAttribute) return;
-  var id = t.getAttribute("data-credset");
-  if(!id) return;
+  if(!t || !t.getAttribute) return;
   var me = currentUser();
+  /* every action on this roster belongs to the credentials owner alone */
   if(!me || me.role !== "admin" || me.username !== CREDS_OWNER) return;
-  var user = state.users.filter(function(x){ return x.id === id; })[0];
+  var cid = t.getAttribute("data-credtoggle") || t.getAttribute("data-creddel") ||
+            t.getAttribute("data-credset");
+  if(!cid) return;
+  var user = state.users.filter(function(x){ return x.id === cid; })[0];
   if(!user) return;
-  ask("Set passcode for " + user.name, [{ label:"New passcode", key:"pin", type:"password" }], function(v){
-    if(v.pin.length < 4) return "Use at least 4 characters.";
-    var salt = randSalt();
-    return hashPin(v.pin, salt).then(function(h){
-      user.salt = salt; user.hash = h; user.pin = v.pin;
-      return save().then(function(ok){
-        if(ok){ render(); toast("Passcode set for @" + user.username + " — it now shows in Credentials."); return null; }
-        return "Not saved yet — the old passcode is still the working one. Keep this tab open; the change retries by itself.";
+
+  /* ---- deactivate / reactivate ---- */
+  var ctoggle = t.getAttribute("data-credtoggle");
+  if(ctoggle){
+    if(user.id === me.id){ toast("You can't switch off your own account."); return; }
+    var turningOff = user.active !== false;
+    if(turningOff && user.role === "admin" &&
+       !state.users.some(function(x){ return x.id !== user.id && x.role === "admin" && x.active !== false; })){
+      toast("Add another admin before switching this one off."); return;
+    }
+    confirmAsk((turningOff ? "Deactivate " : "Reactivate ") + user.name + "?",
+      turningOff
+        ? "@" + user.username + " won't be able to sign in, but their account, shifts and history stay on file. You can reactivate them any time."
+        : "@" + user.username + " will be able to sign in again with the passcode they had.",
+      turningOff ? "Deactivate" : "Reactivate").then(function(yes){
+      if(!yes) return;
+      var rec = state.users.filter(function(x){ return x.id === ctoggle; })[0];
+      if(!rec) return;
+      rec.active = turningOff ? false : true;
+      logEdit(null, "toggle-user", [turningOff ? "deactivated @" + rec.username + " (" + rec.name + ")"
+                                                : "reactivated @" + rec.username + " (" + rec.name + ")"],
+        { userId: rec.id, person: rec.name, date: dayKey(new Date()) });
+      save().then(function(){
+        render();
+        var landed = state.users.some(function(x){ return x.id === rec.id && (x.active !== false) === turningOff; });
+        if(landed) toast(turningOff ? rec.name + " deactivated — they can't sign in until you reactivate them."
+                                    : rec.name + " reactivated — sign-ins are back on.");
       });
     });
-  });
+    return;
+  }
+
+  /* ---- delete ---- */
+  var cdel = t.getAttribute("data-creddel");
+  if(cdel){
+    if(user.id === me.id){ toast("You can't delete the account you're signed in with."); return; }
+    var pends = state.requests.filter(function(r){ return r.userId === user.id && r.status === "pending"; });
+    confirmAsk("Delete " + user.name + "?",
+      user.name + " (@" + user.username + ") will stop signing in immediately. " +
+      "Their recorded shifts and past requests stay on file under “(removed account)”. " +
+      (pends.length ? "Their " + pends.length + " pending request" + (pends.length === 1 ? "" : "s") +
+        " will be removed with the account. " : "") +
+      "You'd add them back as a new account.",
+      "Delete " + user.name).then(function(yes){
+      if(!yes) return;
+      var target = state.users.filter(function(x){ return x.id === cdel; })[0];
+      if(!target) return;
+      if(openEntry(target.id)){ toast(target.name + " is clocked in — clock them out first."); return; }
+      logEdit(null, "delete-user", ["removed @" + target.username + " (" + target.name + ")"],
+        { userId: target.id, person: target.name, date: dayKey(new Date()) });
+      var goneId = target.id, goneName = target.name;
+      state.users = state.users.filter(function(x){ return x.id !== goneId; });
+      /* their pending requests go with them — approved and declined history stays */
+      state.requests = state.requests.filter(function(r){ return !(r.userId === goneId && r.status === "pending"); });
+      save().then(function(){
+        render();
+        var still = state.users.some(function(x){ return x.id === goneId; });
+        if(!still){ toast(goneName + " deleted — logged as @" + me.username + "."); return; }
+        if(!failed) return; /* the server refused and rolled the change back */
+        toast("Not saved yet — " + goneName + " is still here. Keep this tab open; it retries by itself.");
+      });
+    });
+    return;
+  }
+
+  /* ---- set passcode ---- */
+  if(t.getAttribute("data-credset")){
+    ask("Set passcode for " + user.name, [{ label:"New passcode", key:"pin", type:"password" }], function(v){
+      if(v.pin.length < 4) return "Use at least 4 characters.";
+      var salt = randSalt();
+      return hashPin(v.pin, salt).then(function(h){
+        user.salt = salt; user.hash = h; user.pin = v.pin;
+        return save().then(function(ok){
+          if(ok){ render(); toast("Passcode set for @" + user.username + " — it now shows in Credentials."); return null; }
+          return "Not saved yet — the old passcode is still the working one. Keep this tab open; the change retries by itself.";
+        });
+      });
+    });
+  }
 });
 
 function renderTeam(){
@@ -3814,6 +3896,7 @@ function renderTeam(){
   var reqList = $("reqList"); reqList.innerHTML = "";
   pending.forEach(function(r){
     var u = userOf(r.userId);
+    if(!u) return; /* a removed account's strays don't render */
     var isSched = r.kind === "schedule";
     var isDaySched = r.kind === "daySched";
     var isOutage = r.kind === "outage";
