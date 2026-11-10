@@ -41,6 +41,14 @@ and blue `#4AB1E0` (`--brand-red` / `--brand-blue`) — instead of the old green
 - **Approved payroll locks its days.** Once a period is approved, no edits, correction
   requests or log fills are accepted for days inside that range (UI and server side);
   admins and people with payroll access keep their buttons.
+- **Offline reporting.** Tapping **Offline** switches the status chip to
+  *Offline since … — report pending* immediately (the outage span is counted from
+  the tap, so the time in the report dialog is offline time too, not worked time);
+  cancelling the report restores the previous status untouched. Submitting files
+  the outage pause + an `offline` request for the lead/admin, and the chip shows
+  plain **Offline** until *Back online* ends it. The offline time is deducted
+  from worked hours, proof photos optional (PNG/PDF also via the separate
+  Outage report form); acknowledging the report never changes hours.
 - **Request Logs tab.** A repository of every request with its live status — staff see
   their own history (`Pending for Admin Approval`, `Approved`, `Declined`) with a status
   filter; admins and leads also get one-click **Approve**, **Decline** and **Delete**

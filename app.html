@@ -2432,6 +2432,12 @@ var PAUSES = [
 function pauseDef(key){
   return PAUSES.filter(function(p){ return p.key === key; })[0] || { key:key, label:key, cls:"btn-brk", chip:"chip-brk" };
 }
+/* Tapping Offline opens the report dialog before any outage pause exists -
+   the pause is only written when the report is actually sent. pendingOutage
+   holds the tap's ISO time while the dialog is open, so the chip can already
+   show OFFLINE (the span will be backdated to this moment on submit) instead
+   of quietly sitting on the old status. Cleared by the dialog's close event. */
+var pendingOutage = null;
 /* ---- Break 1 / Break 2 / Lunch live on the shift as start/end pairs, so the
    dialogs show each one as two boxes. "On file" is read back the way it was
    written (first start, last end): a shift only ever carries one of a kind
@@ -2771,9 +2777,10 @@ function setPause(key){
     return;
   }
   /* Offline is different from the other pauses: it has to be reported, and
-     the report goes to the team lead and the site admin. The timer only
-     starts once the report is sent (see offlineReportDialog). */
-  if(key === "outage"){ offlineReportDialog(e, now.toISOString()); return; }
+     the report goes to the team lead and the site admin. The status flips to
+     OFFLINE right away (pendingOutage) and the outage pause itself is written
+     once the report is sent (see offlineReportDialog). */
+  if(key === "outage"){ pendingOutage = now.toISOString(); render(); offlineReportDialog(e, now.toISOString()); return; }
   if(live) live.end = now.toISOString();
   /* Break 1, Break 2 and Lunch are one use per shift. Bio breaks and outages
      can be taken again and again - a person may need more than one. */
@@ -2788,9 +2795,18 @@ function offlineReportDialog(entry, startAt){
   var u = currentUser();
   if(!u || !entry) return;
   var photoData = "";
+  /* the chip already shows OFFLINE while this report is open (pendingOutage);
+     when the dialog goes away for any reason - Cancel, Esc, a successful
+     submit - drop the pending marker. Submitting keeps the outage pause, so
+     the chip stays OFFLINE through the real pause on file. */
+  actDlg.addEventListener("close", function once(){
+    actDlg.removeEventListener("close", once);
+    if(pendingOutage === startAt){ pendingOutage = null; render(); }
+  });
   openAct("Report offline time",
     '<p class="note" style="margin:0 0 14px">On file for ' + esc(fmtShortDate(entry.date)) + ': clocked in ' +
-      esc(fmtClock(new Date(entry.inAt))) + '. The offline timer starts when you send this report and runs until you tap <strong>Back online</strong>.</p>' +
+      esc(fmtClock(new Date(entry.inAt))) + '. You are already shown offline since ' +
+      esc(fmtClock(new Date(startAt))) + ' and stay offline until you tap <strong>Back online</strong>.</p>' +
     '<label class="field"><span>What was out?</span><select id="offKind">' +
       '<option value="power">No power</option>' +
       '<option value="internet">No internet</option>' +
@@ -2806,7 +2822,8 @@ function offlineReportDialog(entry, startAt){
     '<p class="err" id="offPhotoErr" style="min-height:0;margin:0 0 10px"></p>' +
     '<p class="note" style="margin:0">Your team lead and the site admin receive this report. The time offline is deducted from your hours.</p>',
     [
-      { label:"Cancel", cls:"btn-quiet", close:true },
+      { label:"Cancel", cls:"btn-quiet", close:true,
+        onClose:function(){ if(pendingOutage === startAt){ pendingOutage = null; render(); } } },
       { label:"Submit report", cls:"btn-in", run:function(body){
           var cur = openEntry(u.id);
           if(!cur || cur.id !== entry.id) return "You're no longer clocked in on that shift.";
@@ -2814,6 +2831,7 @@ function offlineReportDialog(entry, startAt){
           if(["power","internet","both","other"].indexOf(kind) < 0) return "Pick what was out.";
           var note = body.querySelector("#offNote").value.trim();
           if(note.length < 3) return "Add a short note about what happened.";
+          pendingOutage = null; /* the real outage pause takes over the chip */
           var live = openPause(cur);
           if(live) live.end = startAt;
           cur.pauses.push({ type:"outage", start:startAt, end:null });
@@ -3102,11 +3120,16 @@ function renderClock(u){
   $("payLine").textContent = "Pay period " + fmtShortDate(pp[0]) + " – " + fmtShortDate(pp[1]);
   var e = openEntry(u.id);
   var live = openPause(e);
-  var def = live ? pauseDef(live.type) : null;
+  /* while the offline report is being filled in, the outage pause doesn't
+     exist yet - show OFFLINE anyway (it will be backdated to the tap) so the
+     status never quietly rests on the old pause during a report */
+  var pend = !!pendingOutage && !!e && (!live || live.type !== "outage");
+  var activePause = pend ? { type: "outage", start: pendingOutage } : live;
+  var def = activePause ? pauseDef(activePause.type) : null;
   var chip = $("chip");
-  chip.className = "chip " + (!e ? "chip-off" : live ? def.chip : "chip-in");
+  chip.className = "chip " + (!e ? "chip-off" : def ? def.chip : "chip-in");
   $("chipText").textContent = !e ? "Clocked out"
-    : live ? def.label + " since " + fmtClock(new Date(live.start))
+    : def ? def.label + " since " + fmtClock(new Date(activePause.start)) + (pend ? " — report pending" : "")
     : "Working since " + fmtClock(new Date(e.inAt));
 
   var row = $("statusRow");
@@ -4586,7 +4609,7 @@ function openAct(title, bodyHtml, buttons, onOpen){
     btn.className = "btn " + (b.cls || "btn-quiet");
     btn.textContent = b.label;
     btn.addEventListener("click", function(){
-      if(b.close){ actDlg.close(); return; }
+      if(b.close){ if(b.onClose) b.onClose(); actDlg.close(); return; }
       if(b.confirm && btn.dataset.armed !== "1"){
         btn.dataset.armed = "1";
         var orig = b.label;
@@ -5572,9 +5595,15 @@ function tick(){
   var el = $("elapsed"), note = $("elapsedNote");
   if(e){
     var live = openPause(e);
-    el.firstChild.nodeValue = fmtDur(workedMs(e, now.getTime()));
-    note.textContent = live ? pauseDef(live.type).label + " running " + fmtDur(now - new Date(live.start))
-                            : "Worked so far, lunch and offline taken out";
+    var pend2 = !!pendingOutage && (!live || live.type !== "outage");
+    /* the offline span counts from the tap even before the report is sent,
+       so shave it off the displayed worked time until the pause exists */
+    var pendSpan = pend2 ? Math.max(0, now.getTime() - new Date(pendingOutage).getTime()) : 0;
+    el.firstChild.nodeValue = fmtDur(Math.max(0, workedMs(e, now.getTime()) - pendSpan));
+    note.textContent = pend2 ? pauseDef("outage").label + " running " + fmtDur(now - new Date(pendingOutage)) +
+                               " — report pending"
+      : live ? pauseDef(live.type).label + " running " + fmtDur(now - new Date(live.start))
+      : "Worked so far, lunch and offline taken out";
   } else {
     var done = entriesFor(u.id).filter(function(x){ return x.date === dayKey(now) && x.outAt; });
     var total = done.reduce(function(s,x){ return s + workedMs(x); }, 0);
