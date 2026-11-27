@@ -8,8 +8,7 @@ exports.handler = async (event) => {
   store.connect(event);
   if (event.httpMethod !== "GET" && event.httpMethod !== "HEAD") return store.reply(405, { error: "Use GET." });
   try {
-    const db = await store.loadDb();
-    const me = await store.authUser(event, db);
+    const { db, me } = await store.loadAuthed(event);
     return store.reply(200, store.view(db, me.id));
   } catch (e) {
     return store.errorReply(e);

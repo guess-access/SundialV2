@@ -14,13 +14,12 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return store.reply(405, { error: "Use POST." });
   try {
     const patch = store.readBody(event);
-    const db = await store.loadDb();
-    const me = await store.authUser(event, db);
-
-    store.applyPatch(db, patch, me, me.role === "admin");
-    await store.saveDb(db);
-
-    return store.reply(200, store.view(db, me.id));
+    const view = await store.update(event, async (db) => {
+      const me = await store.authUser(event, db);
+      store.applyPatch(db, patch, me, me.role === "admin");
+      return store.view(db, me.id);
+    });
+    return store.reply(200, view);
   } catch (e) {
     return store.errorReply(e);
   }

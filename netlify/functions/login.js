@@ -16,19 +16,19 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return store.reply(405, { error: "Use POST." });
   try {
     const body = store.readBody(event);
-    const db = await store.loadDb();
-    const user = store.findUser(db, body.username);
-
-    if (!user || typeof body.hash !== "string" || !same(user.hash, body.hash)) {
-      return store.reply(401, { error: "That username and passcode don't match." });
-    }
-    if (user.active === false) {
-      return store.reply(403, { error: "Your account is switched off. Ask an admin to switch it on." });
-    }
-
-    const token = store.issueToken(db, user.id);
-    await store.saveDb(db);
-    return store.reply(200, { token: token, userId: user.id });
+    const out = await store.update(event, async (db) => {
+      const user = store.findUser(db, body.username);
+      if (!user || typeof body.hash !== "string" || !same(user.hash, body.hash)) {
+        db.dirty = false;
+        return { status: 401, body: { error: "That username and passcode don't match." } };
+      }
+      if (user.active === false) {
+        db.dirty = false;
+        return { status: 403, body: { error: "Your account is switched off. Ask an admin to switch it on." } };
+      }
+      return { status: 200, body: { token: store.issueToken(db, user.id), userId: user.id } };
+    });
+    return store.reply(out.status, out.body);
   } catch (e) {
     return store.errorReply(e);
   }

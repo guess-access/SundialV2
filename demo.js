@@ -315,6 +315,8 @@ var Demo = (function () {
       if (!(isAdmin || self.payrollAccess === true) && approvedPayrollCovering(db, item.userId, entryDate)) {
         deny(403, "That day's hours are locked — they belong to an approved payroll submission. Ask Payroll & Finance if a change is truly needed.");
       }
+      /* one open shift per person: a second clock-in is dropped (see lib/store.js) */
+      if (!existing && !item.outAt && asList(db.entries).some(function (e) { return e.userId === item.userId && !e.outAt; })) return;
       if (!isAdmin && item.userId === self.id) {
         /* the clock keeps working even after an admin corrected this shift:
            the correction and the history stay, the new punch folds in on top */
